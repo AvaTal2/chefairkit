@@ -4,7 +4,6 @@ import { GoogleGenAI } from "@google/genai";
 
 export async function GET(request: Request) {
   try {
-    // 1. ดึง Environment Variables ข้างในฟังก์ชันเพื่อป้องกัน Error ตอน Build
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
     
@@ -15,7 +14,7 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-    // 2. ดึงคีย์เวิร์ดที่ยังไม่ได้ใช้งาน (is_used = false) มา 1 คำ
+    // 1. ดึงคีย์เวิร์ดที่ยังไม่ได้ใช้งาน (is_used = false) มา 1 คำ
     const { data: keywordData, error: keywordError } = await supabase
       .from("keywords")
       .select("*")
@@ -29,16 +28,23 @@ export async function GET(request: Request) {
 
     const targetKeyword = keywordData.keyword;
 
-    // 3. สั่ง Gemini API ให้เขียนบทความ
+    // 2. ปรับแต่ง Prompt ให้ AI เขียนบทความยาว เจาะลึก และทำ SEO ได้ดีเยี่ยม
     const prompt = `
-      คุณเป็นนักเขียนโปรเฟสชันแนลด้านการตลาดออนไลน์และธุรกิจอาหาร/เบเกอรี่
-      จงเขียนบทความ SEO คุณภาพสูง ความยาวประมาณ 600-800 คำ จากคีย์เวิร์ดหลักคือ: "${targetKeyword}"
+      คุณเป็นผู้เชี่ยวชาญระดับโปรเฟสชันแนลด้านการตลาดดิจิทัล SEO และการทำธุรกิจยุคใหม่
+      จงเขียนบทความ SEO คุณภาพสูงระดับพรีเมียม ความยาวประมาณ 1,000-1,500 คำ จากคีย์เวิร์ดหลักคือ: "${targetKeyword}"
       
-      ขอรูปแบบผลลัพธ์เป็น JSON ล้วนๆ ห้ามมีคำอธิบายอื่นนอกเหนือจาก JSON โครงสร้างดังนี้:
+      แนวทางการเขียนเพื่อให้ติด SEO และมีประโยชน์สูงสุดต่อผู้อ่าน:
+      - มีการเกริ่นนำที่ดึงดูดใจ อธิบายภาพรวม และบอกเหตุผลว่าทำไมผู้อ่านต้องรู้เรื่องนี้
+      - จัดโครงสร้างเนื้อหาด้วยหัวข้อย่อย (H2, H3) ที่ครอบคลุมคำถามที่คนมักค้นหา (FAQ/Intent)
+      - เนื้อหาต้องมีความละเอียด เจาะลึก ให้ขั้นตอน วิธีการปฏิบัติจริง หรือข้อควรระวังอย่างครบถ้วน
+      - หากเหมาะสม ให้จัดรูปแบบข้อมูลเปรียบเทียบด้วยตาราง HTML (<table>, <tr>, <th>, <td>) เพื่อให้อ่านง่าย
+      - ใช้ภาษาที่เป็นธรรมชาติ น่าอ่าน เข้าใจง่าย เหมาะกับผู้ประกอบการและบุคคลทั่วไป
+      
+      ขอรูปแบบผลลัพธ์เป็น JSON ล้วนๆ ห้ามมีคำอธิบายอื่นหรือเครื่องหมายบล็อกโค้ดใดๆ ครอบนอกเหนือจาก JSON โครงสร้างดังนี้:
       {
-        "title": "หัวข้อบทความที่น่าดึงดูดและมีคีย์เวิร์ด",
-        "excerpt": "คำโปรยสั้นๆ สรุปใจความสำคัญของบทความ",
-        "content": "เนื้อหาบทความทั้งหมด จัดรูปแบบด้วยแท็ก HTML เช่น <h2>, <h3>, <p>, <ul>, <li> ให้เรียบร้อย"
+        "title": "หัวข้อบทความที่ดึงดูด น่าสนใจ และมีคีย์เวิร์ดหลักรวมอยู่",
+        "excerpt": "คำโปรยสรุปใจความสำคัญของบทความความยาวประมาณ 2-3 ประโยคเพื่อดึงดูดคนคลิกอ่าน",
+        "content": "เนื้อหาบทความทั้งหมด จัดรูปแบบด้วยแท็ก HTML เช่น <h2>, <h3>, <p>, <ul>, <li>, <table> ให้เรียบร้อยสวยงามสมบูรณ์"
       }
     `;
 
@@ -52,14 +58,13 @@ export async function GET(request: Request) {
       throw new Error("ไม่สามารถสร้างเนื้อหาจาก Gemini AI ได้");
     }
 
-    // แปลงผลลัพธ์ที่ได้จาก AI ให้เป็น JSON
+    // ทำความสะอาดข้อความ JSON
     const cleanJsonText = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
     const articleData = JSON.parse(cleanJsonText);
 
-    // สร้าง Slug เป็นภาษาอังกฤษและตัวเลขปลอดภัย 100%
     const generatedSlug = `article-${Date.now()}`;
 
-    // 4. บันทึกลงตาราง blogs ใน Supabase
+    // 3. บันทึกลงตาราง blogs ใน Supabase
     const { error: insertError } = await supabase.from("blogs").insert([
       {
         title: articleData.title,
@@ -73,7 +78,7 @@ export async function GET(request: Request) {
       throw insertError;
     }
 
-    // 5. อัปเดตสถานะคีย์เวิร์ดว่าถูกใช้งานแล้ว (is_used = true)
+    // 4. อัปเดตสถานะคีย์เวิร์ดว่าถูกใช้งานแล้ว (is_used = true)
     await supabase
       .from("keywords")
       .update({ is_used: true })
@@ -81,7 +86,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `เจนบทความด้วย Gemini สำเร็จจากคีย์เวิร์ด: "${targetKeyword}"`,
+      message: `เจนบทความยาวเชิงลึกด้วย Gemini สำเร็จจากคีย์เวิร์ด: "${targetKeyword}"`,
       slug: generatedSlug,
       title: articleData.title,
     });
