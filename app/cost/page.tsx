@@ -93,17 +93,18 @@ export default function CostPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[650px]">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-100 text-sm font-semibold text-slate-600">
                   <th className="pb-3 w-10">#</th>
-                  <th className="pb-3">รายการวัตถุดิบ</th>
-                  <th className="pb-3 w-28 text-right">ราคาซื้อ (บาท)</th>
-                  <th className="pb-3 w-28 text-right">ปริมาณซื้อ (กรัม)</th>
-                  <th className="pb-3 w-24 text-right">ต้นทุน/หน่วย</th>
-                  <th className="pb-3 w-28 text-right">ปริมาณใช้ (กรัม)</th>
-                  <th className="pb-3 w-28 text-right">ต้นทุนที่ใช้ (บาท)</th>
-                  <th className="pb-3 w-20 text-center">ซื้อของ</th>
+                  {/* ขยายความกว้างช่องชื่อวัตถุดิบให้กว้างขึ้นอย่างเหมาะสม */}
+                  <th className="pb-3 w-[30%]">รายการวัตถุดิบ</th>
+                  <th className="pb-3 w-24 text-right">ราคาซื้อ</th>
+                  <th className="pb-3 w-24 text-right">ปริมาณซื้อ</th>
+                  <th className="pb-3 w-20 text-right">ทุน/หน่วย</th>
+                  <th className="pb-3 w-24 text-right">ใช้ (กรัม)</th>
+                  <th className="pb-3 w-24 text-right">ทุนที่ใช้</th>
+                  <th className="pb-3 w-16 text-center">ซื้อ</th>
                   <th className="pb-3 w-10"></th>
                 </tr>
               </thead>
@@ -117,7 +118,7 @@ export default function CostPage() {
                       <td className="py-3 pr-2">
                         <input
                           type="text"
-                          placeholder="ชื่อวัตถุดิบ"
+                          placeholder="ชื่อวัตถุดิบ (เช่น แป้งสาลี)"
                           value={item.name}
                           onChange={(e) => updateIngredient(item.id, "name", e.target.value)}
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-700"
@@ -141,7 +142,7 @@ export default function CostPage() {
                           className="w-full text-right px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-700"
                         />
                       </td>
-                      <td className="py-3 text-right text-slate-500 font-mono">
+                      <td className="py-3 text-right text-slate-500 font-mono text-xs">
                         {costPerUnit.toFixed(3)}
                       </td>
                       <td className="py-3 pr-2">
@@ -160,7 +161,7 @@ export default function CostPage() {
                         <button
                           onClick={() => searchShopee(item.name)}
                           disabled={!item.name.trim()}
-                          title="ค้นหาพิกัดซื้อวัตถุดิบบน Shopee"
+                          title="ค้นหาพิกัดซื้อวัตถุดิบบบน Shopee"
                           className="p-1.5 text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition disabled:opacity-30 disabled:hover:bg-transparent"
                         >
                           <Search className="w-4 h-4" />
