@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import Navbar from "@/components/navbar";
 import { 
   Link as LinkIcon, QrCode, Wifi, UserCheck, MessageSquare, 
-  Phone, Mail, MessageCircle, CreditCard, Download, Upload, Wallet
+  Phone, Mail, MessageCircle, CreditCard, Download, Upload, Wallet,
+  Store, ShoppingBag, Users, Calendar, Sparkles, Info
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 // @ts-ignore
@@ -130,7 +131,7 @@ export default function QrPage() {
           ctx.fillText(receiverName || "พร้อมเพย์", 200, 390);
 
           if (amount) {
-            ctx.fillStyle = "#E11D48";
+            ctx.fillStyle = "#F97316";
             ctx.font = "bold 22px sans-serif";
             ctx.fillText(`${parseFloat(amount).toFixed(2)} บาท`, 200, 425);
           } else {
@@ -205,11 +206,11 @@ export default function QrPage() {
                     onClick={() => setSelectedType(cat.id as QRType)}
                     className={`w-full text-left p-3 rounded-2xl border transition flex items-center gap-3 ${
                       isSelected
-                        ? "border-rose-500 bg-rose-50/50 text-rose-600 shadow-sm"
+                        ? "border-amber-500 bg-amber-50/50 text-amber-600 shadow-sm"
                         : "border-transparent hover:bg-slate-50 text-slate-700"
                     }`}
                   >
-                    <div className={`p-2 rounded-xl ${isSelected ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    <div className={`p-2 rounded-xl ${isSelected ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500"}`}>
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
@@ -225,7 +226,7 @@ export default function QrPage() {
           {/* ฟอร์มกรอกข้อมูล (ตรงกลาง) */}
           <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-500">ขั้นตอนที่ 1</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-600">ขั้นตอนที่ 1</span>
               <span className="text-xs font-bold text-slate-700">
                 {qrCategories.find((c) => c.id === selectedType)?.label}
               </span>
@@ -241,7 +242,7 @@ export default function QrPage() {
                     value={qrTitle}
                     onChange={(e) => setQrTitle(e.target.value)}
                     placeholder="เช่น เมนูกาแฟ / โปรโมชั่นร้าน"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -251,7 +252,7 @@ export default function QrPage() {
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     placeholder="https://example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -263,13 +264,13 @@ export default function QrPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setAccountType("phone")}
-                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "phone" ? "border-rose-500 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-600"}`}
+                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "phone" ? "border-amber-500 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-600"}`}
                   >
                     เบอร์มือถือ
                   </button>
                   <button
                     onClick={() => setAccountType("idCard")}
-                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "idCard" ? "border-rose-500 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-600"}`}
+                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "idCard" ? "border-amber-500 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-600"}`}
                   >
                     บัตรประชาชน
                   </button>
@@ -281,7 +282,7 @@ export default function QrPage() {
                     value={accountNo}
                     onChange={(e) => setAccountNo(e.target.value)}
                     placeholder="0812345678"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -291,7 +292,7 @@ export default function QrPage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="ปล่อยว่างให้ลูกค้ากรอกเอง"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -301,7 +302,7 @@ export default function QrPage() {
                     value={receiverName}
                     onChange={(e) => setReceiverName(e.target.value)}
                     placeholder="เช่น ร้านเชฟแอร์"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -317,7 +318,7 @@ export default function QrPage() {
                     value={wifiSsid}
                     onChange={(e) => setWifiSsid(e.target.value)}
                     placeholder="เช่น ChefAir_Guest_WiFi"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -327,7 +328,7 @@ export default function QrPage() {
                     value={wifiPassword}
                     onChange={(e) => setWifiPassword(e.target.value)}
                     placeholder="ใส่รหัสผ่าน"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -343,7 +344,7 @@ export default function QrPage() {
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="เชฟแอร์"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -353,7 +354,7 @@ export default function QrPage() {
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="0812345678"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -368,7 +369,7 @@ export default function QrPage() {
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   placeholder="พิมพ์ข้อความที่นี่..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             )}
@@ -382,7 +383,7 @@ export default function QrPage() {
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
                   placeholder="0812345678"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             )}
@@ -397,7 +398,7 @@ export default function QrPage() {
                     value={smsPhone}
                     onChange={(e) => setSmsPhone(e.target.value)}
                     placeholder="0812345678"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -407,7 +408,7 @@ export default function QrPage() {
                     value={smsMessage}
                     onChange={(e) => setSmsMessage(e.target.value)}
                     placeholder="ข้อความสำเร็จรูป"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -422,7 +423,7 @@ export default function QrPage() {
                   value={waPhone}
                   onChange={(e) => setWaPhone(e.target.value)}
                   placeholder="66812345678"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
             )}
@@ -437,7 +438,7 @@ export default function QrPage() {
                     value={emailTo}
                     onChange={(e) => setEmailTo(e.target.value)}
                     placeholder="contact@example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -447,7 +448,7 @@ export default function QrPage() {
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
                     placeholder="สอบถามข้อมูลเพิ่มเติม"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -465,7 +466,7 @@ export default function QrPage() {
                   <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                 </label>
                 {logoUrl && (
-                  <button onClick={() => setLogoUrl(null)} className="text-xs text-rose-500 font-semibold hover:underline">
+                  <button onClick={() => setLogoUrl(null)} className="text-xs text-amber-600 font-semibold hover:underline">
                     ลบ
                   </button>
                 )}
@@ -511,7 +512,7 @@ export default function QrPage() {
                   <>
                     <p className="font-bold text-slate-800 text-sm mt-3">{receiverName || "ชื่อผู้รับเงิน"}</p>
                     {amount ? (
-                      <p className="font-extrabold text-rose-600 text-lg">{parseFloat(amount).toFixed(2)} บาท</p>
+                      <p className="font-extrabold text-amber-600 text-lg">{parseFloat(amount).toFixed(2)} บาท</p>
                     ) : (
                       <p className="text-[11px] text-slate-400 mt-0.5">ลูกค้ากรอกยอดเอง</p>
                     )}
@@ -524,13 +525,136 @@ export default function QrPage() {
 
             <button
               onClick={downloadQRCode}
-              className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm text-xs"
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm text-xs"
             >
               <Download className="w-4 h-4" /> ดาวน์โหลด PNG
             </button>
           </div>
 
         </div>
+
+        {/* ----------------- ส่วนแนะนำการใช้งานด้านล่าง (ธีม ขาว-ส้ม) ----------------- */}
+        <div className="mt-16 space-y-12 pb-12 border-t border-slate-200 pt-12">
+          
+          {/* สเตปวิธีใช้งาน */}
+          <div className="space-y-6">
+            <div className="text-center max-w-xl mx-auto space-y-2">
+              <span className="bg-amber-50 text-amber-600 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                Easy Steps
+              </span>
+              <h2 className="text-2xl font-bold text-slate-800">
+                สร้าง QR Code ใช้งานได้ทันทีใน 3 ขั้นตอน
+              </h2>
+              <p className="text-sm text-slate-500">
+                ไม่ต้องลงโปรแกรม ไม่ต้องมีความรู้เชิงเทคนิค รองรับทั้งมือถือ แท็บเล็ต และคอมพิวเตอร์
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative space-y-3 hover:border-amber-200 transition">
+                <div className="w-10 h-10 bg-amber-500 text-white font-bold rounded-xl flex items-center justify-center text-base shadow-sm shadow-amber-500/30">
+                  1
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">เลือกประเภทที่ต้องการ</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  เลือกรูปแบบข้อมูล เช่น ลิงก์เว็บไซต์ (URL), ข้อความ, พร้อมเพย์, WiFi หรือช่องทางโซเชียลมีเดีย
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative space-y-3 hover:border-amber-200 transition">
+                <div className="w-10 h-10 bg-amber-500 text-white font-bold rounded-xl flex items-center justify-center text-base shadow-sm shadow-amber-500/30">
+                  2
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">ใส่ข้อมูลให้ครบถ้วน</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  กรอกรายละเอียดปลายทางที่ต้องการให้ลูกค้าหรือผู้สแกนเข้าถึงหลังจากส่องคิวอาร์โค้ด
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative space-y-3 hover:border-amber-200 transition">
+                <div className="w-10 h-10 bg-amber-500 text-white font-bold rounded-xl flex items-center justify-center text-base shadow-sm shadow-amber-500/30">
+                  3
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">กดสร้างและดาวน์โหลด</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  ระบบประมวลผลและสร้าง QR Code คมชัดสูง พร้อมให้คุณดาวน์โหลดเป็นไฟล์ PNG ไปใช้งานได้ทันที
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ธุรกิจที่นำไปใช้ได้ */}
+          <div className="space-y-6">
+            <div className="text-center max-w-xl mx-auto space-y-2">
+              <span className="bg-orange-50 text-orange-600 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                Use Cases
+              </span>
+              <h2 className="text-2xl font-bold text-slate-800">
+                ยกระดับธุรกิจและไลฟ์สไตล์ด้วย QR Code
+              </h2>
+              <p className="text-sm text-slate-500">
+                เชื่อมต่อโลกออฟไลน์สู่ออนไลน์ ช่วยให้ลูกค้าเข้าถึงร้านค้าของคุณได้ในเสี้ยววินาที
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-2">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                  <Store className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-slate-800">ร้านอาหาร & คาเฟ่</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  ทำเมนูอาหารออนไลน์ ป้ายสแกนโต๊ะ พร้อมเพย์รับเงิน รีวิวร้าน หรือโปรโมชันพิเศษหน้าร้าน
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-slate-800">พ่อค้าแม่ค้าออนไลน์</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  แปะบนกล่องพัสดุ พาลูกค้าไปหน้าเพจ Shopee, Lazada หรือทักแชท LINE OA สะดวกสุดๆ
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-slate-800">นามบัตรดิจิทัล</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  รวมช่องทางติดต่อ เบอร์โทร เว็บไซต์ และโซเชียลทั้งหมดไว้ในคิวอาร์โค้ดเดียวจบ
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-slate-800">อีเวนต์ & เวิร์กช็อป</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  ใช้ลงทะเบียนหน้างาน เช็กอิน หรือทำแบบประเมินความพึงพอใจสะดวกรวดเร็ว
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* กล่องสรุปไฮไลต์ */}
+          <div className="bg-gradient-to-br from-amber-500 to-orange-500 text-white p-8 rounded-2xl shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-amber-100 text-sm font-semibold uppercase tracking-wider">
+              <Sparkles className="w-4 h-4" /> ทำไมต้องใช้เครื่องมือนี้
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold">
+              เครื่องมือสร้าง QR Code ฟรี สะดวก ปลอดภัย และใช้งานได้ตลอดชีพ
+            </h2>
+            <p className="text-amber-50 text-sm sm:text-base leading-relaxed max-w-3xl">
+              ChefAir Kit ออกแบบระบบสร้าง QR Code มาเพื่อให้ผู้ประกอบการและนักธุรกิจยุคใหม่ใช้งานได้ฟรี ไม่มีค่าใช้จ่าย ช่วยตัดขั้นตอนที่ยุ่งยาก เปลี่ยนลิงก์ยาวๆ ให้เป็นคิวอาร์โค้ดสวยๆ พร้อมนำไปปริ้นหรือแชร์ใช้งานได้ทันที
+            </p>
+          </div>
+
+        </div>
+
       </main>
     </div>
   );
