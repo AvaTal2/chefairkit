@@ -1,0 +1,537 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import Navbar from "@/components/navbar";
+import { 
+  Link as LinkIcon, QrCode, Wifi, UserCheck, MessageSquare, 
+  Phone, Mail, MessageCircle, CreditCard, Download, Upload, Wallet
+} from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+// @ts-ignore
+import generatePayload from "promptpay-qr";
+
+type QRType = "url" | "promptpay" | "wifi" | "contact" | "text" | "phone" | "sms" | "whatsapp" | "email";
+
+export default function QrPage() {
+  const [selectedType, setSelectedType] = useState<QRType>("url");
+
+  // State ทั่วไป
+  const [qrTitle, setQrTitle] = useState<string>("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  // 1. URL / ลิงก์
+  const [urlInput, setUrlInput] = useState<string>("https://shopee.co.th");
+
+  // 2. PromptPay
+  const [accountType, setAccountType] = useState<"phone" | "idCard">("phone");
+  const [accountNo, setAccountNo] = useState<string>("0812345678");
+  const [amount, setAmount] = useState<string>("99");
+  const [receiverName, setReceiverName] = useState<string>("ร้านเชฟแอร์ เบเกอรี่");
+  const [promptpayPayload, setPromptpayPayload] = useState<string>("");
+
+  // 3. WiFi
+  const [wifiSsid, setWifiSsid] = useState<string>("");
+  const [wifiPassword, setWifiPassword] = useState<string>("");
+  const [wifiEncryption, setWifiEncryption] = useState<"WPA" | "WEP" | "nopass">("WPA");
+
+  // 4. Contact
+  const [contactName, setContactName] = useState<string>("");
+  const [contactPhone, setContactPhone] = useState<string>("");
+  const [contactEmail, setContactEmail] = useState<string>("");
+
+  // 5. Text / Phone / SMS / WhatsApp / Email
+  const [textInput, setTextInput] = useState<string>("");
+  const [phoneInput, setPhoneInput] = useState<string>("");
+  const [smsPhone, setSmsPhone] = useState<string>("");
+  const [smsMessage, setSmsMessage] = useState<string>("");
+  const [waPhone, setWaPhone] = useState<string>("");
+  const [emailTo, setEmailTo] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState<string>("");
+
+  // คำนวณ Payload PromptPay
+  useEffect(() => {
+    try {
+      const cleanAccount = accountNo.replace(/[^0-9]/g, "");
+      if (cleanAccount.length >= 10) {
+        const parsedAmount = amount ? parseFloat(amount) : undefined;
+        const payload = generatePayload(cleanAccount, { amount: parsedAmount });
+        setPromptpayPayload(payload);
+      } else {
+        setPromptpayPayload(accountNo);
+      }
+    } catch {
+      setPromptpayPayload(accountNo);
+    }
+  }, [accountNo, amount]);
+
+  // คำนวณค่าที่จะเอาไปสร้าง QR ตามประเภทที่เลือก
+  const getQRValue = (): string => {
+    switch (selectedType) {
+      case "url":
+        return urlInput || "https://shopee.co.th";
+      case "promptpay":
+        return promptpayPayload || "0812345678";
+      case "wifi":
+        return `WIFI:T:${wifiEncryption};S:${wifiSsid};P:${wifiPassword};;`;
+      case "contact":
+        return `BEGIN:VCARD\nVERSION:3.0\nN:${contactName}\nTEL:${contactPhone}\nEMAIL:${contactEmail}\nEND:VCARD`;
+      case "text":
+        return textInput || "ข้อความของคุณ";
+      case "phone":
+        return `tel:${phoneInput}`;
+      case "sms":
+        return `smsto:${smsPhone}:${smsMessage}`;
+      case "whatsapp":
+        return `https://wa.me/${waPhone.replace(/[^0-9]/g, "")}`;
+      case "email":
+        return `mailto:${emailTo}?subject=${encodeURIComponent(emailSubject)}`;
+      default:
+        return "https://shopee.co.th";
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setLogoUrl(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const downloadQRCode = () => {
+    const svgElement = document.getElementById("main-qr-svg") as SVGElement | null;
+    if (!svgElement) return;
+
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = 400;
+      canvas.height = selectedType === "promptpay" ? 500 : 440;
+      if (ctx) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (selectedType === "promptpay") {
+          ctx.fillStyle = "#0F3866";
+          ctx.fillRect(20, 20, 360, 45);
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 16px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("สแกนจ่ายด้วยพร้อมเพย์", 200, 48);
+
+          ctx.drawImage(img, 60, 80, 280, 280);
+
+          ctx.fillStyle = "#1E293B";
+          ctx.font = "bold 18px sans-serif";
+          ctx.fillText(receiverName || "พร้อมเพย์", 200, 390);
+
+          if (amount) {
+            ctx.fillStyle = "#E11D48";
+            ctx.font = "bold 22px sans-serif";
+            ctx.fillText(`${parseFloat(amount).toFixed(2)} บาท`, 200, 425);
+          } else {
+            ctx.fillStyle = "#64748B";
+            ctx.font = "14px sans-serif";
+            ctx.fillText("ลูกค้ากรอกยอดเงินเอง", 200, 425);
+          }
+        } else {
+          ctx.drawImage(img, 60, 40, 280, 280);
+          if (qrTitle) {
+            ctx.fillStyle = "#1E293B";
+            ctx.font = "bold 16px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(qrTitle, 200, 350);
+          }
+        }
+
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("สร้างฟรีที่ ChefAir Kit", 200, canvas.height - 20);
+
+        const pngFile = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        downloadLink.download = `QR-${selectedType}.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      }
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  const qrCategories = [
+    { id: "url", label: "URL / ลิงก์", desc: "ส่งคนไปหน้าเว็บ LINE OA Shopee", icon: LinkIcon },
+    { id: "promptpay", label: "QR พร้อมเพย์", desc: "รับเงินเข้าบัญชี ใส่โลโก้ร้านได้", icon: Wallet },
+    { id: "wifi", label: "WiFi", desc: "แสดงข้อมูล WiFi และ QR เชื่อมต่อ", icon: Wifi },
+    { id: "contact", label: "Contact", desc: "นามบัตร / ข้อมูลติดต่อ", icon: UserCheck },
+    { id: "text", label: "ข้อความ", desc: "แสดงข้อความหลังสแกน", icon: MessageSquare },
+    { id: "phone", label: "โทร", desc: "แตะเพื่อโทรออก", icon: Phone },
+    { id: "sms", label: "SMS", desc: "ส่ง SMS พร้อมข้อความ", icon: MessageCircle },
+    { id: "whatsapp", label: "WhatsApp", desc: "เปิดแชต WhatsApp", icon: MessageCircle },
+    { id: "email", label: "Email", desc: "เปิดแอปอีเมลพร้อมหัวข้อ", icon: Mail },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-100/70 font-sans pb-16">
+      <Navbar />
+
+      <main className="py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+            สร้าง qrcode ฟรี
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            เลือกประเภท ใส่ข้อมูล แล้วดาวน์โหลด QR ไปใช้ได้ทันที
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* เมนูเลือกประเภท (Sidebar ฝั่งซ้าย) */}
+          <div className="lg:col-span-4 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+            <h2 className="text-sm font-bold text-slate-800 px-3 py-1">เลือกประเภท QR</h2>
+            <div className="space-y-1">
+              {qrCategories.map((cat) => {
+                const Icon = cat.icon;
+                const isSelected = selectedType === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedType(cat.id as QRType)}
+                    className={`w-full text-left p-3 rounded-2xl border transition flex items-center gap-3 ${
+                      isSelected
+                        ? "border-rose-500 bg-rose-50/50 text-rose-600 shadow-sm"
+                        : "border-transparent hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <div className={`p-2 rounded-xl ${isSelected ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs sm:text-sm">{cat.label}</div>
+                      <div className="text-[11px] text-slate-400 font-normal">{cat.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ฟอร์มกรอกข้อมูล (ตรงกลาง) */}
+          <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-500">ขั้นตอนที่ 1</span>
+              <span className="text-xs font-bold text-slate-700">
+                {qrCategories.find((c) => c.id === selectedType)?.label}
+              </span>
+            </div>
+
+            {/* 1. URL / ลิงก์ */}
+            {selectedType === "url" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อ QR (ไม่บังคับ)</label>
+                  <input
+                    type="text"
+                    value={qrTitle}
+                    onChange={(e) => setQrTitle(e.target.value)}
+                    placeholder="เช่น เมนูกาแฟ / โปรโมชั่นร้าน"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">URL / ลิงก์</label>
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 2. QR พร้อมเพย์ */}
+            {selectedType === "promptpay" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setAccountType("phone")}
+                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "phone" ? "border-rose-500 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-600"}`}
+                  >
+                    เบอร์มือถือ
+                  </button>
+                  <button
+                    onClick={() => setAccountType("idCard")}
+                    className={`py-2 text-xs font-semibold rounded-xl border ${accountType === "idCard" ? "border-rose-500 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-600"}`}
+                  >
+                    บัตรประชาชน
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">หมายเลขพร้อมเพย์</label>
+                  <input
+                    type="text"
+                    value={accountNo}
+                    onChange={(e) => setAccountNo(e.target.value)}
+                    placeholder="0812345678"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">จำนวนเงิน (ปล่อยว่างได้)</label>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="ปล่อยว่างให้ลูกค้ากรอกเอง"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อร้าน / ผู้รับเงิน</label>
+                  <input
+                    type="text"
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
+                    placeholder="เช่น ร้านเชฟแอร์"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 3. WiFi */}
+            {selectedType === "wifi" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อ WiFi (SSID)</label>
+                  <input
+                    type="text"
+                    value={wifiSsid}
+                    onChange={(e) => setWifiSsid(e.target.value)}
+                    placeholder="เช่น ChefAir_Guest_WiFi"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">รหัสผ่าน WiFi</label>
+                  <input
+                    type="text"
+                    value={wifiPassword}
+                    onChange={(e) => setWifiPassword(e.target.value)}
+                    placeholder="ใส่รหัสผ่าน"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 4. Contact */}
+            {selectedType === "contact" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล</label>
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="เชฟแอร์"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
+                  <input
+                    type="text"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="0812345678"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 5. ข้อความทั่วไป */}
+            {selectedType === "text" && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">ข้อความที่ต้องการให้สแกนแล้วเจอ</label>
+                <textarea
+                  rows={4}
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="พิมพ์ข้อความที่นี่..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+            )}
+
+            {/* 6. โทร */}
+            {selectedType === "phone" && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
+                <input
+                  type="text"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="0812345678"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+            )}
+
+            {/* 7. SMS */}
+            {selectedType === "sms" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">เบอร์ปลายทาง</label>
+                  <input
+                    type="text"
+                    value={smsPhone}
+                    onChange={(e) => setSmsPhone(e.target.value)}
+                    placeholder="0812345678"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ข้อความ SMS</label>
+                  <input
+                    type="text"
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    placeholder="ข้อความสำเร็จรูป"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 8. WhatsApp */}
+            {selectedType === "whatsapp" && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">เบอร์ WhatsApp (พร้อมรหัสประเทศ เช่น 66812345678)</label>
+                <input
+                  type="text"
+                  value={waPhone}
+                  onChange={(e) => setWaPhone(e.target.value)}
+                  placeholder="66812345678"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+            )}
+
+            {/* 9. Email */}
+            {selectedType === "email" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">อีเมลปลายทาง</label>
+                  <input
+                    type="email"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    placeholder="contact@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">หัวข้ออีเมล</label>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="สอบถามข้อมูลเพิ่มเติม"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* อัปโหลดโลโก้ */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">โลโก้กลาง QR (ไม่บังคับ)</label>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 cursor-pointer flex items-center justify-between transition">
+                  <span className="flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    {logoUrl ? "เปลี่ยนโลโก้" : "เลือกไฟล์รูปภาพ"}
+                  </span>
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                </label>
+                {logoUrl && (
+                  <button onClick={() => setLogoUrl(null)} className="text-xs text-rose-500 font-semibold hover:underline">
+                    ลบ
+                  </button>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* พรีวิว QR Code (ฝั่งขวา) */}
+          <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col items-center">
+            <h2 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3 w-full text-center mb-4">
+              ตัวอย่าง QR ของคุณ
+            </h2>
+
+            <div className="w-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-4">
+              {selectedType === "promptpay" && (
+                <div className="bg-[#0F3866] text-white py-2 text-center text-xs font-bold tracking-wide">
+                  สแกนจ่ายด้วยพร้อมเพย์
+                </div>
+              )}
+
+              <div className="p-4 flex flex-col items-center justify-center bg-white">
+                <QRCodeSVG
+                  id="main-qr-svg"
+                  value={getQRValue()}
+                  size={170}
+                  level="H"
+                  imageSettings={
+                    logoUrl
+                      ? {
+                          src: logoUrl,
+                          x: undefined,
+                          y: undefined,
+                          height: 36,
+                          width: 36,
+                          excavate: true,
+                        }
+                      : undefined
+                  }
+                />
+
+                {selectedType === "promptpay" ? (
+                  <>
+                    <p className="font-bold text-slate-800 text-sm mt-3">{receiverName || "ชื่อผู้รับเงิน"}</p>
+                    {amount ? (
+                      <p className="font-extrabold text-rose-600 text-lg">{parseFloat(amount).toFixed(2)} บาท</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 mt-0.5">ลูกค้ากรอกยอดเอง</p>
+                    )}
+                  </>
+                ) : (
+                  qrTitle && <p className="font-bold text-slate-800 text-xs mt-3 text-center">{qrTitle}</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={downloadQRCode}
+              className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm text-xs"
+            >
+              <Download className="w-4 h-4" /> ดาวน์โหลด PNG
+            </button>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  );
+}
