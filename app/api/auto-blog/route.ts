@@ -2,19 +2,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
 
-// ตั้งค่า Supabase (ใช้ Service Role Key เพื่อข้าม RLS)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
-// ให้สร้าง slug เป็นภาษาอังกฤษ/ตัวเลขปลอดภัย เช่น auto-blog-[timestamp] หรือให้ AI แปลชื่อหัวข้อเป็นอังกฤษสั้นๆ
-// ตัวอย่างนี้ใช้ ID/Timestamp กำกับ เพื่อความชัวร์ 100% ไม่พังแน่นอนครับ
-const generatedSlug = `article-${Date.now()}`;
-// ตั้งค่า Gemini AI (ใช้ SDK ทางการ @google/genai)
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
 export async function GET(request: Request) {
   try {
-    // 1. ดึงคีย์เวิร์ดที่ยังไม่ได้ใช้งาน (is_used = false) มา 1 คำ
+    // 1. ดึง Environment Variables ข้างในฟังก์ชันเพื่อป้องกัน Error ตอน Build
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Missing Supabase Environment Variables");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+    // 2. ดึงคีย์เวิร์ดที่ยังไม่ได้ใช้งาน (is_used = false) มา 1 คำ
     const { data: keywordData, error: keywordError } = await supabase
       .from("keywords")
       .select("*")
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
 
     const targetKeyword = keywordData.keyword;
 
-    // 2. สั่ง Gemini API ให้เขียนบทความ
+    // 3. สั่ง Gemini API ให้เขียนบทความ
     const prompt = `
       คุณเป็นนักเขียนโปรเฟสชันแนลด้านการตลาดออนไลน์และธุรกิจอาหาร/เบเกอรี่
       จงเขียนบทความ SEO คุณภาพสูง ความยาวประมาณ 600-800 คำ จากคีย์เวิร์ดหลักคือ: "${targetKeyword}"
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash", // หรือรุ่นที่รองรับ
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 
@@ -52,11 +53,13 @@ export async function GET(request: Request) {
     }
 
     // แปลงผลลัพธ์ที่ได้จาก AI ให้เป็น JSON
-    // ทำความสะอาดข้อความเผื่อ AI ติด Markdown block มาด้วย
     const cleanJsonText = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
     const articleData = JSON.parse(cleanJsonText);
 
-    // 3. บันทึกลงตาราง blogs ใน Supabase
+    // สร้าง Slug เป็นภาษาอังกฤษและตัวเลขปลอดภัย 100%
+    const generatedSlug = `article-${Date.now()}`;
+
+    // 4. บันทึกลงตาราง blogs ใน Supabase
     const { error: insertError } = await supabase.from("blogs").insert([
       {
         title: articleData.title,
@@ -70,7 +73,7 @@ export async function GET(request: Request) {
       throw insertError;
     }
 
-    // 4. อัปเดตสถานะคีย์เวิร์ดว่าถูกใช้งานแล้ว (is_used = true)
+    // 5. อัปเดตสถานะคีย์เวิร์ดว่าถูกใช้งานแล้ว (is_used = true)
     await supabase
       .from("keywords")
       .update({ is_used: true })
