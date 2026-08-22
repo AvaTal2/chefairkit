@@ -18,7 +18,7 @@ interface Blog {
   excerpt: string;
   created_at: string;
 }
-
+export const dynamic = "force-dynamic";
 export default function BlogPage() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
