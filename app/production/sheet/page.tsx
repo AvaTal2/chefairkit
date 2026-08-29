@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useMemo,
   useState,
@@ -149,7 +150,7 @@ const getToday = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ProductionSheetPage() {
+function ProductionSheetContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1273,3 +1274,20 @@ export default function ProductionSheetPage() {
     </main>
   );
 }
+
+export default function ProductionSheetPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-50 px-4 py-10">
+          <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
+            กำลังโหลด Production Sheet...
+          </div>
+        </main>
+      }
+    >
+      <ProductionSheetContent />
+    </Suspense>
+  );
+}
+
