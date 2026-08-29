@@ -340,6 +340,18 @@ export default function RecipeDetailPage() {
       );
     };
 
+  const handleBack = () => {
+    if (
+      typeof window !== "undefined" &&
+      window.history.length > 1
+    ) {
+      router.back();
+      return;
+    }
+
+    router.push("/recipes");
+  };
+
   const calculateIngredientCost =
     (
       item: Ingredient
@@ -537,12 +549,13 @@ export default function RecipeDetailPage() {
 
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-7">
           <div>
-            <Link
-              href="/recipes"
-              className="text-sm text-slate-500 hover:text-amber-600"
+            <button
+              type="button"
+              onClick={handleBack}
+              className="text-sm text-slate-500 hover:text-amber-600 transition"
             >
-              ← สูตรของฉัน
-            </Link>
+              ← กลับ
+            </button>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-2">
               {recipe.name}
@@ -550,14 +563,22 @@ export default function RecipeDetailPage() {
 
             {recipe.category && (
               <p className="text-sm font-semibold text-amber-600 mt-1">
-                {
-                  recipe.category
-                }
+                {recipe.category}
               </p>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+
+            {/* SOP */}
+
+            <Link
+              href={`/recipes/${recipe.id}/sop`}
+              className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              SOP
+            </Link>
+
             <Link
               href={`/recipes/${recipe.id}/edit`}
               className="border border-slate-200 bg-white hover:border-amber-300 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-sm"
@@ -802,7 +823,10 @@ export default function RecipeDetailPage() {
 
         {/* PRODUCTION */}
 
-        <div className="mb-6">
+        <div
+          id="production"
+          className="mb-6 scroll-mt-28"
+        >
           <ProductionCalculator
             ingredients={
               ingredients

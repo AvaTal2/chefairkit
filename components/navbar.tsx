@@ -17,6 +17,7 @@ import {
   User,
   Settings,
   Scale,
+  Factory,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
@@ -118,6 +119,7 @@ export default function Navbar() {
   return (
     <nav className="bg-white border-b border-slate-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 flex items-center gap-4">
+
         {/* Logo */}
 
         <Link
@@ -140,6 +142,7 @@ export default function Navbar() {
 
         <div className="flex-1 overflow-x-auto">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-max">
+
             <Link
               href="/recipe-calculator"
               className={navClass(
@@ -166,33 +169,41 @@ export default function Navbar() {
               QR Code
             </Link>
 
-            {profile && (
-              <>
-                <Link
-                  href="/recipes"
-                  className={navClass("/recipes")}
-                >
-                  <BookOpen className="w-4 h-4 text-amber-500" />
-                  สูตรของฉัน
-                </Link>
+            <Link
+              href="/recipes"
+              className={navClass("/recipes")}
+            >
+              <BookOpen className="w-4 h-4 text-amber-500" />
+              สูตรของฉัน
+            </Link>
 
-                <Link
-                  href="/ingredients"
-                  className={navClass(
-                    "/ingredients"
-                  )}
-                >
-                  <PackageSearch className="w-4 h-4 text-amber-500" />
-                  คลังวัตถุดิบ
-                </Link>
-              </>
-            )}
+            <Link
+              href="/ingredients"
+              className={navClass(
+                "/ingredients"
+              )}
+            >
+              <PackageSearch className="w-4 h-4 text-amber-500" />
+              คลังวัตถุดิบ
+            </Link>
+
+            <Link
+              href="/production"
+              className={navClass(
+                "/production"
+              )}
+            >
+              <Factory className="w-4 h-4 text-amber-500" />
+              Production
+            </Link>
+
           </div>
         </div>
 
         {/* Desktop account */}
 
         <div className="hidden md:flex items-center gap-2 shrink-0">
+
           <button
             type="button"
             onClick={() =>
@@ -266,14 +277,16 @@ export default function Navbar() {
               </button>
             </>
           )}
+
         </div>
       </div>
 
-      {/* Mobile */}
+      {/* Mobile account */}
 
       {!loadingUser && (
         <div className="md:hidden border-t border-slate-100 px-4 py-2 bg-white">
           <div className="flex items-center gap-2 overflow-x-auto">
+
             {profile ? (
               <>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-amber-50 px-3 py-2 rounded-lg whitespace-nowrap">
@@ -286,20 +299,6 @@ export default function Navbar() {
                     {profile.plan}
                   </span>
                 </div>
-
-                <Link
-                  href="/recipes"
-                  className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-2 rounded-lg whitespace-nowrap"
-                >
-                  สูตรของฉัน
-                </Link>
-
-                <Link
-                  href="/ingredients"
-                  className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-2 rounded-lg whitespace-nowrap"
-                >
-                  คลังวัตถุดิบ
-                </Link>
 
                 <Link
                   href="/account"
@@ -337,9 +336,11 @@ export default function Navbar() {
                 </Link>
               </>
             )}
+
           </div>
         </div>
       )}
+
     </nav>
   );
 }

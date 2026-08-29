@@ -1,20 +1,38 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Navbar from "@/components/navbar";
+import { useRouter } from "next/navigation";
 import { 
   Link as LinkIcon, QrCode, Wifi, UserCheck, MessageSquare, 
   Phone, Mail, MessageCircle, CreditCard, Download, Upload, Wallet,
-  Store, ShoppingBag, Users, Calendar, Sparkles, Info
+  Store, ShoppingBag, Users, Calendar, Sparkles, Info,
+  RefreshCw, Save, LayoutDashboard, ExternalLink, LockKeyhole, BarChart3
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 // @ts-ignore
 import generatePayload from "promptpay-qr";
+import { supabase } from "@/lib/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type QRType = "url" | "promptpay" | "wifi" | "contact" | "text" | "phone" | "sms" | "whatsapp" | "email";
+type QRMode = "static" | "dynamic";
 
 export default function QrPage() {
+  const router = useRouter();
+
+  const {
+    loading: subscriptionLoading,
+    permissions,
+  } = useSubscription();
+
   const [selectedType, setSelectedType] = useState<QRType>("url");
+  const [qrMode, setQrMode] = useState<QRMode>("static");
+  const [dynamicCategory, setDynamicCategory] = useState<string>("");
+  const [dynamicQrId, setDynamicQrId] = useState<string | null>(null);
+  const [dynamicQrSlug, setDynamicQrSlug] = useState<string>("");
+  const [dynamicQrUrl, setDynamicQrUrl] = useState<string>("");
+  const [savingDynamicQr, setSavingDynamicQr] = useState(false);
+  const [dynamicMessage, setDynamicMessage] = useState<string>("");
 
   // State ทั่วไป
   const [qrTitle, setQrTitle] = useState<string>("");
@@ -65,10 +83,150 @@ export default function QrPage() {
     }
   }, [accountNo, amount]);
 
+  const createSlug = () => {
+    const randomPart = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+    return randomPart.toLowerCase();
+  };
+
+  const normalizeUrl = (value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) return null;
+
+    try {
+      const parsed = new URL(trimmed);
+
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return null;
+      }
+
+      return parsed.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDynamicModeClick = () => {
+    setDynamicMessage("");
+
+    if (subscriptionLoading) {
+      return;
+    }
+
+    if (!permissions.canUseDynamicQr) {
+      setQrMode("static");
+      setDynamicMessage(
+        "Dynamic QR ใช้ได้ในแพ็กเกจ Pro หรือ Business"
+      );
+      return;
+    }
+
+    setQrMode("dynamic");
+  };
+
+  const handleSaveDynamicQr = async () => {
+    if (selectedType !== "url") return;
+
+    if (!permissions.canUseDynamicQr) {
+      setDynamicMessage(
+        "Dynamic QR ใช้ได้ในแพ็กเกจ Pro หรือ Business"
+      );
+      return;
+    }
+
+    const destination = normalizeUrl(urlInput);
+
+    if (!destination) {
+      setDynamicMessage("กรุณากรอก URL ปลายทางให้ถูกต้อง เช่น https://example.com");
+      return;
+    }
+
+    setSavingDynamicQr(true);
+    setDynamicMessage("");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      sessionStorage.setItem(
+        "chefair_after_login_redirect",
+        "/qr"
+      );
+
+      setSavingDynamicQr(false);
+      router.push("/login");
+      return;
+    }
+
+    if (dynamicQrId) {
+      const { error } = await supabase
+        .from("dynamic_qrs")
+        .update({
+          title: qrTitle.trim() || "Dynamic QR",
+          destination_url: destination,
+          category: dynamicCategory.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", dynamicQrId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        setDynamicMessage("บันทึก Dynamic QR ไม่สำเร็จ: " + error.message);
+        setSavingDynamicQr(false);
+        return;
+      }
+
+      setDynamicMessage("✓ อัปเดต Dynamic QR แล้ว ลิงก์ QR เดิมยังใช้ได้เหมือนเดิม");
+      setSavingDynamicQr(false);
+      return;
+    }
+
+    const slug = createSlug();
+
+    const { data, error } = await supabase
+      .from("dynamic_qrs")
+      .insert({
+        user_id: user.id,
+        title: qrTitle.trim() || "Dynamic QR",
+        slug,
+        destination_url: destination,
+        category: dynamicCategory.trim() || null,
+        is_active: true,
+      })
+      .select("id, slug")
+      .single();
+
+    if (error) {
+      setDynamicMessage("สร้าง Dynamic QR ไม่สำเร็จ: " + error.message);
+      setSavingDynamicQr(false);
+      return;
+    }
+
+    const origin = window.location.origin;
+    const redirectUrl = `${origin}/q/${data.slug}`;
+
+    setDynamicQrId(data.id);
+    setDynamicQrSlug(data.slug);
+    setDynamicQrUrl(redirectUrl);
+    setDynamicMessage("✓ สร้าง Dynamic QR เรียบร้อยแล้ว");
+    setSavingDynamicQr(false);
+  };
+
+  const resetDynamicQr = () => {
+    setDynamicQrId(null);
+    setDynamicQrSlug("");
+    setDynamicQrUrl("");
+    setDynamicMessage("");
+  };
+
   // คำนวณค่าที่จะเอาไปสร้าง QR ตามประเภทที่เลือก
   const getQRValue = (): string => {
     switch (selectedType) {
       case "url":
+        if (qrMode === "dynamic" && dynamicQrUrl) {
+          return dynamicQrUrl;
+        }
         return urlInput || "https://shopee.co.th";
       case "promptpay":
         return promptpayPayload || "0812345678";
@@ -179,7 +337,6 @@ export default function QrPage() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 font-sans pb-16">
-      <Navbar />
 
       <main className="py-8 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="text-center mb-8">
@@ -189,6 +346,7 @@ export default function QrPage() {
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             เลือกประเภท ใส่ข้อมูล แล้วดาวน์โหลด QR ไปใช้ได้ทันที
           </p>
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -203,7 +361,14 @@ export default function QrPage() {
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => setSelectedType(cat.id as QRType)}
+                    onClick={() => {
+                      const nextType = cat.id as QRType;
+                      setSelectedType(nextType);
+
+                      if (nextType !== "url") {
+                        setQrMode("static");
+                      }
+                    }}
                     className={`w-full text-left p-3 rounded-2xl border transition flex items-center gap-3 ${
                       isSelected
                         ? "border-amber-500 bg-amber-50/50 text-amber-600 shadow-sm"
@@ -234,9 +399,81 @@ export default function QrPage() {
 
             {/* 1. URL / ลิงก์ */}
             {selectedType === "url" && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">ชื่อ QR (ไม่บังคับ)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
+                    รูปแบบ QR
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQrMode("static");
+                        setDynamicMessage("");
+                      }}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition ${
+                        qrMode === "static"
+                          ? "border-amber-500 bg-amber-50 text-amber-600"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      Static QR ฟรี
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDynamicModeClick}
+                      disabled={subscriptionLoading}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition disabled:opacity-50 ${
+                        qrMode === "dynamic"
+                          ? "border-violet-500 bg-violet-50 text-violet-700"
+                          : permissions.canUseDynamicQr
+                          ? "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          : "border-slate-200 bg-slate-50 text-slate-400"
+                      }`}
+                    >
+                      Dynamic QR Pro
+                      {!subscriptionLoading &&
+                        !permissions.canUseDynamicQr &&
+                        " 🔒"}
+                    </button>
+                  </div>
+
+                  {dynamicMessage &&
+                    qrMode === "static" &&
+                    !permissions.canUseDynamicQr && (
+                    <div className="mt-3 rounded-xl px-3.5 py-3 text-xs bg-amber-50 border border-amber-100 text-amber-700">
+                      {dynamicMessage}
+                    </div>
+                  )}
+                </div>
+
+                {qrMode === "dynamic" && (
+                  <div className="bg-violet-50 border border-violet-100 rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-violet-600 text-white p-2 rounded-xl shrink-0">
+                        <RefreshCw className="w-4 h-4" />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-extrabold text-violet-800">
+                          เปลี่ยนลิงก์ปลายทางได้ โดยใช้ QR code เดิม
+                        </p>
+
+                        <p className="text-xs text-violet-600 mt-1 leading-relaxed">
+                          ปัจจุบัน พร้อมเก็บข้อมูลการสแกนสำหรับ Analytics
+                        
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    ชื่อ QR {qrMode === "dynamic" ? "(แนะนำให้ใส่)" : "(ไม่บังคับ)"}
+                  </label>
                   <input
                     type="text"
                     value={qrTitle}
@@ -245,8 +482,27 @@ export default function QrPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
+
+                {qrMode === "dynamic" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      หมวดหมู่ (ไม่บังคับ)
+                    </label>
+
+                    <input
+                      type="text"
+                      value={dynamicCategory}
+                      onChange={(e) => setDynamicCategory(e.target.value)}
+                      placeholder="เช่น เมนู / โปรโมชั่น / แพ็กเกจสินค้า"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                    />
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">URL / ลิงก์</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    URL / ลิงก์ปลายทาง
+                  </label>
                   <input
                     type="url"
                     value={urlInput}
@@ -255,6 +511,101 @@ export default function QrPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
+
+                {qrMode === "dynamic" && (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveDynamicQr}
+                        disabled={savingDynamicQr}
+                        className="flex-1 inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                      >
+                        {savingDynamicQr ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+
+                        {savingDynamicQr
+                          ? "กำลังบันทึก..."
+                          : dynamicQrId
+                          ? "บันทึก URL ปลายทางใหม่"
+                          : "สร้าง Dynamic QR"}
+                      </button>
+
+                      {dynamicQrId && (
+                        <button
+                          type="button"
+                          onClick={resetDynamicQr}
+                          className="inline-flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                        >
+                          สร้าง QR ใหม่
+                        </button>
+                      )}
+                    </div>
+
+                    {dynamicMessage && (
+                      <div
+                        className={`rounded-xl px-3.5 py-3 text-xs ${
+                          dynamicMessage.startsWith("✓")
+                            ? "bg-emerald-50 border border-emerald-100 text-emerald-700"
+                            : "bg-red-50 border border-red-100 text-red-600"
+                        }`}
+                      >
+                        {dynamicMessage}
+                      </div>
+                    )}
+
+                    {dynamicQrUrl && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <p className="text-[11px] font-bold text-slate-500">
+                          Dynamic URL ของ QR
+                        </p>
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="text-[11px] text-slate-700 break-all flex-1">
+                            {dynamicQrUrl}
+                          </code>
+
+                          <a
+                            href={dynamicQrUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-violet-600 hover:text-violet-700"
+                            title="เปิด Dynamic URL"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
+
+                        <p className="text-[10px] text-slate-400 mt-2">
+                          Slug: {dynamicQrSlug}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push("/qr/my")}
+                        className="w-full inline-flex items-center justify-center gap-2 border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        My Dynamic QR
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => router.push("/qr/my")}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        ดู Analytics
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -489,6 +840,13 @@ export default function QrPage() {
               )}
 
               <div className="p-4 flex flex-col items-center justify-center bg-white">
+                {selectedType === "url" && qrMode === "dynamic" && (
+                  <div className="mb-3 inline-flex items-center gap-1.5 bg-violet-50 text-violet-700 border border-violet-100 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                    <RefreshCw className="w-3 h-3" />
+                    Dynamic QR Pro
+                  </div>
+                )}
+
                 <QRCodeSVG
                   id="main-qr-svg"
                   value={getQRValue()}
@@ -525,10 +883,30 @@ export default function QrPage() {
 
             <button
               onClick={downloadQRCode}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm text-xs"
+              disabled={
+                selectedType === "url" &&
+                qrMode === "dynamic" &&
+                !dynamicQrUrl
+              }
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-amber-500 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm text-xs"
             >
-              <Download className="w-4 h-4" /> ดาวน์โหลด PNG
+              <Download className="w-4 h-4" />
+              {selectedType === "url" && qrMode === "dynamic" && !dynamicQrUrl
+                ? "สร้าง Dynamic QR ก่อนดาวน์โหลด"
+                : "ดาวน์โหลด PNG"}
             </button>
+
+            {selectedType === "url" && qrMode === "dynamic" && (
+              <div className="mt-3 w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[10px] text-slate-500 leading-relaxed">
+                <div className="flex items-start gap-2">
+                  <LockKeyhole className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Dynamic QR จะเก็บ URL ของ ChefAir Kit ไว้ในภาพ QR
+                    จึงสามารถเปลี่ยนปลายทางภายหลังได้จากหน้า My Dynamic QR
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

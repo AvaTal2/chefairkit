@@ -13,7 +13,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-import Navbar from "@/components/navbar";
 import { supabase } from "@/lib/supabase/client";
 
 type Profile = {
@@ -194,7 +193,6 @@ export default function AccountPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <Navbar />
 
         <main className="max-w-4xl mx-auto px-4 py-10">
           <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
@@ -207,7 +205,6 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 py-10">
         {/* Header */}

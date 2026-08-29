@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type IngredientItem = {
   id: string;
@@ -91,6 +92,11 @@ const EMPTY_FORM: FormState = {
 export default function IngredientsPage() {
   const router = useRouter();
 
+  const {
+    loading: subscriptionLoading,
+    permissions,
+  } = useSubscription();
+
   const [ingredients, setIngredients] = useState<IngredientItem[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -127,6 +133,7 @@ export default function IngredientsPage() {
     const { data, error } = await supabase
       .from("ingredients")
       .select("*")
+      .eq("user_id", user.id)
       .order("name", { ascending: true });
 
     if (error) {
@@ -141,6 +148,15 @@ export default function IngredientsPage() {
     setIngredients(data || []);
     setLoading(false);
   };
+
+  const ingredientLimit =
+    permissions.isFree
+      ? 30
+      : null;
+
+  const ingredientLimitReached =
+    ingredientLimit !== null &&
+    ingredients.length >= ingredientLimit;
 
   const filteredIngredients = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -253,6 +269,46 @@ export default function IngredientsPage() {
     if (!user) {
       router.push("/login");
       return;
+    }
+
+    if (
+      !editingId &&
+      ingredientLimit !== null
+    ) {
+      const {
+        count: latestIngredientCount,
+        error: ingredientCountError,
+      } = await supabase
+        .from("ingredients")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("user_id", user.id);
+
+      if (ingredientCountError) {
+        setMessage(
+          "ตรวจสอบจำนวนวัตถุดิบไม่สำเร็จ: " +
+            ingredientCountError.message
+        );
+
+        setMessageType("error");
+        setSaving(false);
+        return;
+      }
+
+      if (
+        (latestIngredientCount || 0) >=
+        ingredientLimit
+      ) {
+        setMessage(
+          `แพ็กเกจ Free เพิ่มวัตถุดิบได้สูงสุด ${ingredientLimit} รายการ`
+        );
+
+        setMessageType("error");
+        setSaving(false);
+        return;
+      }
     }
 
     const name = form.name.trim();
@@ -580,6 +636,41 @@ export default function IngredientsPage() {
           </div>
         </div>
 
+        {!subscriptionLoading &&
+          ingredientLimit !== null && (
+          <div
+            className={`mb-5 rounded-2xl border px-5 py-4 ${
+              ingredientLimitReached
+                ? "bg-amber-50 border-amber-200"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-slate-800">
+                  วัตถุดิบที่บันทึกไว้ {ingredients.length} / {ingredientLimit}
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  แพ็กเกจ Free เพิ่มวัตถุดิบได้สูงสุด {ingredientLimit} รายการ
+                </p>
+              </div>
+
+              {ingredientLimitReached && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/pricing")
+                  }
+                  className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm"
+                >
+                  ดูแพ็กเกจ Pro
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* MESSAGE */}
 
         {message && (
@@ -610,7 +701,10 @@ export default function IngredientsPage() {
                 </h2>
 
                 <p className="text-xs text-slate-400 mt-1">
-                  ข้อมูลต้นทุนและโภชนาการของวัตถุดิบ
+                  {!editingId &&
+                  ingredientLimitReached
+                    ? "ถึงจำนวนวัตถุดิบสูงสุดของแพ็กเกจ Free แล้ว"
+                    : "ข้อมูลต้นทุนและโภชนาการของวัตถุดิบ"}
                 </p>
               </div>
 
@@ -1033,14 +1127,21 @@ export default function IngredientsPage() {
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={
+                  saving ||
+                  subscriptionLoading ||
+                  (!editingId &&
+                    ingredientLimitReached)
+                }
                 className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3 rounded-xl"
               >
                 {saving
                   ? "กำลังบันทึก..."
                   : editingId
                     ? "บันทึกการแก้ไข"
-                    : "เพิ่มเข้าคลัง"}
+                    : ingredientLimitReached
+                      ? "ถึงจำนวนวัตถุดิบสูงสุดแล้ว"
+                      : "เพิ่มเข้าคลัง"}
               </button>
             </form>
           </section>

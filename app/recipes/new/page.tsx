@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type LibraryIngredient = {
   id: string;
@@ -129,6 +130,14 @@ const normalizeUnit = (unit?: string | null) => {
 export default function NewRecipePage() {
   const router = useRouter();
 
+  const {
+    loading: subscriptionLoading,
+    permissions,
+  } = useSubscription();
+
+  const [recipeCount, setRecipeCount] = useState(0);
+  const [loadingRecipeLimit, setLoadingRecipeLimit] = useState(true);
+
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [yieldAmount, setYieldAmount] = useState("");
@@ -159,6 +168,54 @@ export default function NewRecipePage() {
     loadIngredientLibrary();
     loadRecipeTransfer();
   }, []);
+
+  useEffect(() => {
+    if (subscriptionLoading) {
+      return;
+    }
+
+    loadRecipeCount();
+  }, [
+    subscriptionLoading,
+    permissions.recipeLimit,
+  ]);
+
+  const loadRecipeCount = async () => {
+    setLoadingRecipeLimit(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setLoadingRecipeLimit(false);
+      return;
+    }
+
+    const {
+      count,
+      error,
+    } = await supabase
+      .from("recipes")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error(
+        "ตรวจสอบจำนวนสูตรไม่สำเร็จ:",
+        error
+      );
+
+      setLoadingRecipeLimit(false);
+      return;
+    }
+
+    setRecipeCount(count || 0);
+    setLoadingRecipeLimit(false);
+  };
 
   const loadRecipeTransfer = () => {
     try {
@@ -468,6 +525,10 @@ export default function NewRecipePage() {
     );
   }, [ingredients]);
 
+  const recipeLimitReached =
+    permissions.recipeLimit !== null &&
+    recipeCount >= permissions.recipeLimit;
+
   const handleSave = async (
     e: React.FormEvent
   ) => {
@@ -483,6 +544,49 @@ export default function NewRecipePage() {
     if (!user) {
       router.push("/login");
       return;
+    }
+
+    if (
+      permissions.recipeLimit !== null
+    ) {
+      const {
+        count:
+          latestRecipeCount,
+        error:
+          recipeCountError,
+      } = await supabase
+        .from("recipes")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("user_id", user.id);
+
+      if (recipeCountError) {
+        setMessage(
+          "ตรวจสอบจำนวนสูตรไม่สำเร็จ: " +
+            recipeCountError.message
+        );
+
+        setSaving(false);
+        return;
+      }
+
+      if (
+        (latestRecipeCount || 0) >=
+        permissions.recipeLimit
+      ) {
+        setRecipeCount(
+          latestRecipeCount || 0
+        );
+
+        setMessage(
+          `แพ็กเกจ Free บันทึกได้สูงสุด ${permissions.recipeLimit} สูตร`
+        );
+
+        setSaving(false);
+        return;
+      }
     }
 
     if (!name.trim()) {
@@ -619,6 +723,42 @@ export default function NewRecipePage() {
             แล้วกรอกเฉพาะปริมาณที่ใช้ในสูตร
           </p>
         </div>
+
+        {!subscriptionLoading &&
+          !loadingRecipeLimit &&
+          permissions.recipeLimit !== null && (
+          <div
+            className={`mb-6 rounded-2xl border px-5 py-4 ${
+              recipeLimitReached
+                ? "bg-amber-50 border-amber-200"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-slate-800">
+                  สูตรที่บันทึกไว้ {recipeCount} / {permissions.recipeLimit}
+                </p>
+
+                <p className="text-xs text-slate-500 mt-1">
+                  แพ็กเกจ Free บันทึกสูตรได้สูงสุด {permissions.recipeLimit} สูตร
+                </p>
+              </div>
+
+              {recipeLimitReached && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/pricing")
+                  }
+                  className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm"
+                >
+                  ดูแพ็กเกจ Pro
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* แจ้งเตือนเมื่อมาจาก Recipe Calculator */}
 
@@ -1239,11 +1379,18 @@ export default function NewRecipePage() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={
+                saving ||
+                subscriptionLoading ||
+                loadingRecipeLimit ||
+                recipeLimitReached
+              }
               className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition"
             >
               {saving
                 ? "กำลังบันทึก..."
+                : recipeLimitReached
+                ? "ถึงจำนวนสูตรสูงสุดแล้ว"
                 : "บันทึกสูตร"}
             </button>
           </div>

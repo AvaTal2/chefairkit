@@ -1,6 +1,5 @@
 "use client";
 
-import Navbar from "@/components/navbar";
 import Link from "next/link";
 import {
   Calculator,
@@ -16,7 +15,6 @@ import {
 export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar />
 
       <main className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
         {/* Badge */}
