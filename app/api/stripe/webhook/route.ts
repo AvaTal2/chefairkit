@@ -56,6 +56,47 @@ async function activateManualPro(
   const now =
     new Date();
 
+  /*
+   * Stripe อาจส่ง webhook เดิมซ้ำได้
+   * ห้ามต่ออายุ Pro ซ้ำจาก Checkout Session เดิม
+   */
+  const {
+    data:
+      existingPayment,
+    error:
+      existingPaymentError,
+  } =
+    await supabase
+      .from(
+        "subscription_payments"
+      )
+      .select(
+        "id, status"
+      )
+      .eq(
+        "stripe_checkout_session_id",
+        session.id
+      )
+      .maybeSingle();
+
+  if (
+    existingPaymentError
+  ) {
+    throw existingPaymentError;
+  }
+
+  if (
+    existingPayment?.status ===
+    "paid"
+  ) {
+    console.log(
+      "PromptPay Checkout Session already processed:",
+      session.id
+    );
+
+    return;
+  }
+
   const {
     data:
       existing,
@@ -166,11 +207,15 @@ async function activateManualPro(
     throw subscriptionError;
   }
 
-  await supabase
-    .from(
-      "subscription_payments"
-    )
-    .insert({
+  const {
+    error:
+      paymentInsertError,
+  } =
+    await supabase
+      .from(
+        "subscription_payments"
+      )
+      .insert({
       user_id:
         userId,
 
@@ -218,6 +263,12 @@ async function activateManualPro(
       updated_at:
         now.toISOString(),
     });
+
+  if (
+    paymentInsertError
+  ) {
+    throw paymentInsertError;
+  }
 }
 
 async function syncStripeSubscription(
@@ -279,11 +330,15 @@ async function syncStripeSubscription(
         ).toISOString()
       : null;
 
-  await supabase
-    .from(
-      "user_subscriptions"
-    )
-    .upsert(
+  const {
+    error:
+      subscriptionSyncError,
+  } =
+    await supabase
+      .from(
+        "user_subscriptions"
+      )
+      .upsert(
       {
         user_id:
           userId,
@@ -324,6 +379,12 @@ async function syncStripeSubscription(
           "user_id",
       }
     );
+
+  if (
+    subscriptionSyncError
+  ) {
+    throw subscriptionSyncError;
+  }
 }
 
 export async function POST(

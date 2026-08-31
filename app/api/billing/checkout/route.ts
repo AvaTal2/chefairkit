@@ -199,6 +199,9 @@ export async function POST(
             customer:
               customerId,
 
+            allow_promotion_codes:
+              true,
+
             line_items: [
               {
                 price:
@@ -269,6 +272,9 @@ export async function POST(
 
           customer:
             customerId,
+
+          allow_promotion_codes:
+            true,
 
           payment_method_types: [
             "promptpay",
