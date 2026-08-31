@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Calculator, ShoppingBag, Search, Package, Users, Flame, Building2, BadgeDollarSign, TrendingUp, Percent, Truck, ReceiptText, BarChart3, Crown } from "lucide-react";
+import { Plus, Trash2, Calculator, ShoppingBag, Search, Package, Building2, BadgeDollarSign, TrendingUp, Percent, Truck, ReceiptText, BarChart3, Crown, ClipboardPaste, FileText, CircleAlert, CheckCircle2 } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 
 interface Ingredient {
@@ -11,7 +11,177 @@ interface Ingredient {
   packPrice: number | "";
   packWeight: number | "";
   usedWeight: number | "";
+  sourceUnit?: string;
 }
+
+interface ParsedIngredient {
+  name: string;
+  amount: number;
+  unit: string;
+  normalizedGrams: number | "";
+  warning?: string;
+}
+
+
+const STOP_SECTION_PATTERNS = [
+  /^วิธีทำ\b/i,
+  /^ขั้นตอน\b/i,
+  /^วิธีปรุง\b/i,
+  /^วิธีเก็บ\b/i,
+  /^การเก็บรักษา\b/i,
+  /^หมายเหตุ\b/i,
+  /^เทคนิค\b/i,
+  /^คำแนะนำ\b/i,
+  /^วิธีใช้\b/i,
+  /^procedure\b/i,
+  /^method\b/i,
+  /^directions?\b/i,
+  /^instructions?\b/i,
+];
+
+const INGREDIENT_SECTION_PATTERNS = [
+  /^วัตถุดิบ\b/i,
+  /^ส่วนผสม\b/i,
+  /^ingredients?\b/i,
+  /^เครื่องปรุง\b/i,
+];
+
+const UNIT_MAP: Array<{
+  pattern: string;
+  unit: string;
+  multiplierToGram?: number;
+}> = [
+  { pattern: "กิโลกรัม|กก\\\\.?|kg", unit: "kg", multiplierToGram: 1000 },
+  { pattern: "กรัม|ก\\\\.?|g", unit: "g", multiplierToGram: 1 },
+  { pattern: "มิลลิลิตร|มล\\\\.?|ml", unit: "ml" },
+  { pattern: "ลิตร|ล\\\\.?|lit(?:er|re)?s?|l", unit: "l" },
+  { pattern: "ช้อนชา|ชช\\\\.?|tsp", unit: "tsp" },
+  { pattern: "ช้อนโต๊ะ|ชต\\\\.?|tbsp", unit: "tbsp" },
+  { pattern: "ถ้วย|cup", unit: "cup" },
+  { pattern: "ชิ้น|piece|pcs?", unit: "piece" },
+  { pattern: "ฟอง", unit: "piece" },
+  { pattern: "ขวด|bottle", unit: "bottle" },
+  { pattern: "ถุง|bag", unit: "bag" },
+  { pattern: "แพ็ก|แพค|pack", unit: "pack" },
+  { pattern: "กล่อง|box", unit: "box" },
+];
+
+const NON_INGREDIENT_UNITS =
+  /นาที|ชั่วโมง|วินาที|องศา|°c|°f|เซลเซียส|ฟาเรนไฮต์/i;
+
+const cleanLine = (line: string) =>
+  line
+    .replace(/^[\s\-–—•*▪︎◦●○]+/, "")
+    .replace(/^\d+[\.\)]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const parseRecipeText = (rawText: string) => {
+  const parsed: ParsedIngredient[] = [];
+  const rejected: string[] = [];
+
+  const lines = rawText
+    .split(/\r?\n/)
+    .map(cleanLine)
+    .filter(Boolean);
+
+  let inIngredientSection = false;
+  let stoppedBySection = false;
+
+  for (const originalLine of lines) {
+    const line = originalLine.trim();
+
+    if (INGREDIENT_SECTION_PATTERNS.some((pattern) => pattern.test(line))) {
+      inIngredientSection = true;
+      stoppedBySection = false;
+      continue;
+    }
+
+    if (STOP_SECTION_PATTERNS.some((pattern) => pattern.test(line))) {
+      if (inIngredientSection) {
+        stoppedBySection = true;
+      }
+      inIngredientSection = false;
+      continue;
+    }
+
+    if (stoppedBySection) {
+      continue;
+    }
+
+    if (NON_INGREDIENT_UNITS.test(line)) {
+      rejected.push(line);
+      continue;
+    }
+
+    let matched = false;
+
+    for (const unitDef of UNIT_MAP) {
+      const regex = new RegExp(
+        `^(.*?)\\s+([0-9]+(?:[,.][0-9]+)?)\\s*(${unitDef.pattern})(?:\\s|$|\\(|\\[)`,
+        "i"
+      );
+
+      const match = line.match(regex);
+
+      if (!match) {
+        continue;
+      }
+
+      const name = match[1]
+        .replace(/[=:：]+$/, "")
+        .trim();
+
+      const amount = Number(match[2].replace(/,/g, "."));
+
+      if (!name || !Number.isFinite(amount) || amount <= 0) {
+        rejected.push(line);
+        matched = true;
+        break;
+      }
+
+      let normalizedGrams: number | "" = "";
+
+      if (unitDef.multiplierToGram) {
+        normalizedGrams = amount * unitDef.multiplierToGram;
+      } else if (unitDef.unit === "ml") {
+        normalizedGrams = amount;
+      } else if (unitDef.unit === "l") {
+        normalizedGrams = amount * 1000;
+      }
+
+      parsed.push({
+        name,
+        amount,
+        unit: unitDef.unit,
+        normalizedGrams,
+        warning:
+          normalizedGrams === ""
+            ? "หน่วยนี้ยังแปลงเป็นกรัมอัตโนมัติไม่ได้ กรุณาตรวจสอบก่อนคำนวณ"
+            : undefined,
+      });
+
+      matched = true;
+      break;
+    }
+
+    if (!matched) {
+      const looksLikeProcedure =
+        /นำ|ผสม|ปั่น|ต้ม|ทอด|อบ|ย่าง|พัก|คน|เคี่ยว|ตั้งไฟ|เท|หั่น|ล้าง|แช่|เก็บ|เสิร์ฟ/i.test(
+          line
+        );
+
+      if (looksLikeProcedure || /\d/.test(line)) {
+        rejected.push(line);
+      }
+    }
+  }
+
+  return {
+    parsed,
+    rejected,
+  };
+};
 
 export default function CostPage() {
   const router = useRouter();
@@ -25,11 +195,13 @@ export default function CostPage() {
     { id: "1", name: "", packPrice: "", packWeight: "", usedWeight: "" },
     { id: "2", name: "", packPrice: "", packWeight: "", usedWeight: "" },
   ]);
+  const [recipePasteText, setRecipePasteText] = useState("");
+  const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
+  const [rejectedLines, setRejectedLines] = useState<string[]>([]);
+  const [pasteMessage, setPasteMessage] = useState("");
   const [actualYield, setActualYield] = useState<number | "">("");
   const [portionSize, setPortionSize] = useState<number | "">("");
   const [packagingCost, setPackagingCost] = useState<number | "">("");
-  const [laborCost, setLaborCost] = useState<number | "">("");
-  const [utilityCost, setUtilityCost] = useState<number | "">("");
   const [overheadCost, setOverheadCost] = useState<number | "">("");
   const [sellingPrice, setSellingPrice] = useState<number | "">("");
   const [targetMargin, setTargetMargin] = useState<number | "">("");
@@ -72,6 +244,105 @@ export default function CostPage() {
     );
   };
 
+  const handleParseRecipeText = () => {
+    setPasteMessage("");
+
+    if (!recipePasteText.trim()) {
+      setParsedIngredients([]);
+      setRejectedLines([]);
+      setPasteMessage("กรุณาวางสูตรก่อน");
+      return;
+    }
+
+    const result = parseRecipeText(recipePasteText);
+
+    setParsedIngredients(result.parsed);
+    setRejectedLines(result.rejected);
+
+    if (result.parsed.length === 0) {
+      setPasteMessage(
+        "ยังไม่พบรายการวัตถุดิบที่มีชื่อ + ปริมาณ + หน่วย กรุณาตรวจข้อความอีกครั้ง"
+      );
+      return;
+    }
+
+    setPasteMessage(
+      `ตรวจพบวัตถุดิบ ${result.parsed.length} รายการ`
+    );
+  };
+
+  const makeImportedRows = () =>
+    parsedIngredients.map((item, index) => ({
+      id: `${Date.now()}-${index}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}`,
+      name: item.name,
+      packPrice: "" as const,
+      packWeight: "" as const,
+      usedWeight:
+        item.normalizedGrams === ""
+          ? ("" as const)
+          : item.normalizedGrams,
+      sourceUnit: `${item.amount} ${item.unit}`,
+    }));
+
+  const handleAppendParsedIngredients = () => {
+    if (parsedIngredients.length === 0) {
+      return;
+    }
+
+    const importedRows = makeImportedRows();
+
+    const hasOnlyBlankRows = ingredients.every(
+      (item) =>
+        !item.name.trim() &&
+        item.packPrice === "" &&
+        item.packWeight === "" &&
+        item.usedWeight === ""
+    );
+
+    setIngredients(
+      hasOnlyBlankRows
+        ? importedRows
+        : [...ingredients, ...importedRows]
+    );
+
+    setPasteMessage(
+      `เพิ่มวัตถุดิบ ${importedRows.length} รายการลงตารางแล้ว`
+    );
+  };
+
+  const handleReplaceWithParsedIngredients = () => {
+    if (parsedIngredients.length === 0) {
+      return;
+    }
+
+    const hasExistingData = ingredients.some(
+      (item) =>
+        item.name.trim() ||
+        item.packPrice !== "" ||
+        item.packWeight !== "" ||
+        item.usedWeight !== ""
+    );
+
+    if (
+      hasExistingData &&
+      !window.confirm(
+        "ต้องการแทนที่รายการวัตถุดิบทั้งหมดในตารางด้วยรายการที่แยกจากข้อความใช่หรือไม่?"
+      )
+    ) {
+      return;
+    }
+
+    const importedRows = makeImportedRows();
+
+    setIngredients(importedRows);
+
+    setPasteMessage(
+      `แทนที่ตารางด้วยวัตถุดิบ ${importedRows.length} รายการแล้ว`
+    );
+  };
+
   const calculateCostPerUnit = (item: Ingredient) => {
     if (typeof item.packPrice === "number" && typeof item.packWeight === "number" && item.packWeight > 0) {
       return item.packPrice / item.packWeight;
@@ -94,8 +365,6 @@ export default function CostPage() {
 
   const extraCost =
     (typeof packagingCost === "number" ? packagingCost : 0) +
-    (typeof laborCost === "number" ? laborCost : 0) +
-    (typeof utilityCost === "number" ? utilityCost : 0) +
     (typeof overheadCost === "number" ? overheadCost : 0);
 
   const totalCost = totalIngredientCost + extraCost;
@@ -255,6 +524,193 @@ export default function CostPage() {
             </div>
           </div>
 
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+              <div className="flex items-start gap-3">
+                <div className="bg-violet-50 p-3 rounded-xl text-violet-600">
+                  <ClipboardPaste className="w-6 h-6" />
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-bold text-slate-800">
+                      วางสูตรทั้งชุด
+                    </h2>
+
+                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full">
+                      ไม่ใช้ AI
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    คัดลอกสูตรจากเอกสารหรือคอร์สเรียนมาวาง ระบบจะแยกเฉพาะวัตถุดิบและปริมาณให้ก่อนนำลงตาราง
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <textarea
+              value={recipePasteText}
+              onChange={(e) =>
+                setRecipePasteText(e.target.value)
+              }
+              rows={8}
+              placeholder={`ตัวอย่าง
+
+สูตรน้ำจิ้มซีฟู้ด
+
+วัตถุดิบ
+น้ำปลา 90 กรัม
+น้ำเชื่อม 90 กรัม
+น้ำส้มสายชู 80 กรัม
+พริกแดงจินดา 30 กรัม
+
+วิธีทำ
+1. นำทุกอย่างไปปั่นรวมกัน
+2. ปั่นประมาณ 2 นาที`}
+              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm text-slate-700 leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400"
+            />
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <button
+                type="button"
+                onClick={handleParseRecipeText}
+                className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition"
+              >
+                <FileText className="w-4 h-4" />
+                แยกสูตรเป็นรายการ
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRecipePasteText("");
+                  setParsedIngredients([]);
+                  setRejectedLines([]);
+                  setPasteMessage("");
+                }}
+                className="inline-flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold px-5 py-3 rounded-xl text-sm transition"
+              >
+                ล้างข้อความ
+              </button>
+            </div>
+
+            {pasteMessage && (
+              <div
+                className={`mt-4 rounded-xl px-4 py-3 text-sm border ${
+                  parsedIngredients.length > 0
+                    ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                    : "bg-amber-50 border-amber-100 text-amber-700"
+                }`}
+              >
+                {pasteMessage}
+              </div>
+            )}
+
+            {parsedIngredients.length > 0 && (
+              <div className="mt-5 border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      Preview ก่อนเพิ่มลงตาราง
+                    </p>
+
+                    <p className="text-xs text-slate-500 mt-1">
+                      ตรวจชื่อและปริมาณก่อน แล้วค่อยเลือกเพิ่มต่อท้ายหรือแทนที่รายการเดิม
+                    </p>
+                  </div>
+
+                  <span className="text-xs font-bold text-violet-600">
+                    {parsedIngredients.length} รายการ
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {parsedIngredients.map((item, index) => (
+                    <div
+                      key={`${item.name}-${index}`}
+                      className="grid grid-cols-[32px_1fr_auto] gap-3 items-start px-4 py-3"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center text-xs font-bold">
+                        {index + 1}
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {item.name}
+                        </p>
+
+                        {item.warning && (
+                          <div className="flex items-start gap-1.5 text-[11px] text-amber-600 mt-1">
+                            <CircleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            {item.warning}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-700">
+                          {item.amount} {item.unit}
+                        </p>
+
+                        {item.normalizedGrams !== "" && (
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            ลงตารางเป็น {item.normalizedGrams} กรัม
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAppendParsedIngredients}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-3 rounded-xl text-sm transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่มต่อท้ายรายการเดิม
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleReplaceWithParsedIngredients}
+                    className="flex-1 inline-flex items-center justify-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold px-4 py-3 rounded-xl text-sm transition"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    แทนที่รายการทั้งหมด
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {rejectedLines.length > 0 && (
+              <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <summary className="cursor-pointer text-xs font-bold text-slate-600">
+                  ข้อความที่ระบบไม่นำเข้าตาราง ({rejectedLines.length})
+                </summary>
+
+                <div className="mt-3 space-y-1.5">
+                  {rejectedLines.slice(0, 12).map((line, index) => (
+                    <p
+                      key={`${line}-${index}`}
+                      className="text-xs text-slate-500"
+                    >
+                      • {line}
+                    </p>
+                  ))}
+
+                  {rejectedLines.length > 12 && (
+                    <p className="text-xs text-slate-400">
+                      และอีก {rejectedLines.length - 12} บรรทัด
+                    </p>
+                  )}
+                </div>
+              </details>
+            )}
+          </section>
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
@@ -286,6 +742,11 @@ export default function CostPage() {
                           onChange={(e) => updateIngredient(item.id, "name", e.target.value)}
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-slate-700"
                         />
+                        {item.sourceUnit && (
+                          <p className="text-[10px] text-violet-500 mt-1">
+                            นำเข้าจากสูตร: {item.sourceUnit}
+                          </p>
+                        )}
                       </td>
                       <td className="py-3 pr-2">
                         <input
@@ -378,22 +839,6 @@ export default function CostPage() {
                 description="กล่อง ถ้วย ฝา ถุง สติ๊กเกอร์ ช้อนส้อม ฯลฯ"
                 value={packagingCost}
                 onChange={setPackagingCost}
-              />
-
-              <AdvancedCostInput
-                icon={<Users className="w-4 h-4" />}
-                label="Labor / ค่าแรง"
-                description="ค่าแรงที่ต้องการคิดรวมในสูตรหรือ Batch นี้"
-                value={laborCost}
-                onChange={setLaborCost}
-              />
-
-              <AdvancedCostInput
-                icon={<Flame className="w-4 h-4" />}
-                label="Utility / แก๊ส-ไฟ-น้ำ"
-                description="ค่าแก๊ส ค่าไฟ ค่าน้ำ หรือค่าใช้จ่ายในการผลิต"
-                value={utilityCost}
-                onChange={setUtilityCost}
               />
 
               <AdvancedCostInput
