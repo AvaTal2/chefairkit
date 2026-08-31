@@ -1,7 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
 import React, { useEffect, useState } from "react";
-import Navbar from "@/components/navbar";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Calendar, ArrowLeft, BookOpen, Calculator, QrCode } from "lucide-react";
@@ -55,7 +54,6 @@ export default function BlogDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 font-sans">
-        <Navbar />
         <div className="text-center py-24 text-slate-400 text-sm">กำลังโหลดเนื้อหาบทความ...</div>
       </div>
     );
@@ -64,7 +62,6 @@ export default function BlogDetailPage() {
   if (!blog) {
     return (
       <div className="min-h-screen bg-slate-50 font-sans">
-        <Navbar />
         <main className="py-20 px-4 text-center max-w-lg mx-auto space-y-4">
           <BookOpen className="w-12 h-12 text-slate-300 mx-auto" />
           <h1 className="text-xl font-bold text-slate-800">ไม่พบบทความที่คุณต้องการ</h1>
@@ -82,7 +79,6 @@ export default function BlogDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-20">
-      <Navbar />
 
       <main className="py-10 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
         {/* ปุ่มย้อนกลับ */}
