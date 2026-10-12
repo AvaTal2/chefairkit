@@ -1,810 +1,224 @@
-"use client";
-
-import {
-  useState,
-} from "react";
-
 import Link from "next/link";
-
 import {
-  Check,
-  X,
-  Sparkles,
-  Crown,
-  Building2,
   ArrowRight,
-  CreditCard,
-  QrCode,
-  Loader2,
-  Settings,
-  CalendarDays,
   BadgeCheck,
+  BookOpen,
+  Calculator,
+  Check,
+  ChefHat,
+  ClipboardList,
+  FileSpreadsheet,
+  FileText,
+  LockKeyhole,
+  Package,
+  QrCode,
+  Scale,
+  ShoppingCart,
+  Sparkles,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase/client";
-import { useSubscription } from "@/hooks/useSubscription";
-
-type FeatureRow = {
-  label: string;
-  free: string | boolean;
-  pro: string | boolean;
-  business: string | boolean;
-};
-
-type BillingChoice =
-  | "auto_renew"
-  | "promptpay_monthly";
-
-const features: FeatureRow[] = [
+const features = [
   {
-    label: "คำนวณต้นทุนอาหาร",
-    free: true,
-    pro: true,
-    business: true,
+    icon: Calculator,
+    title: "คำนวณต้นทุนอาหาร",
+    description:
+      "คำนวณต้นทุนวัตถุดิบ ต้นทุนต่อสูตร และต้นทุนต่อหน่วย เพื่อช่วยกำหนดราคาขาย",
   },
   {
-    label: "สร้าง Static QR Code",
-    free: true,
-    pro: true,
-    business: true,
+    icon: BookOpen,
+    title: "บันทึกสูตรอาหารไม่จำกัด",
+    description:
+      "สร้าง แก้ไข และจัดเก็บสูตรอาหารไว้ในบัญชีของคุณ โดยไม่มีข้อจำกัดจำนวนสูตร",
   },
   {
-    label: "Dynamic QR + Analytics",
-    free: false,
-    pro: true,
-    business: true,
+    icon: Package,
+    title: "คลังวัตถุดิบไม่จำกัด",
+    description:
+      "จัดเก็บข้อมูลวัตถุดิบ ราคา หน่วย และข้อมูลโภชนาการ เพื่อใช้งานร่วมกับสูตรอาหาร",
   },
   {
-    label: "บันทึกสูตร",
-    free: "สูงสุด 5 สูตร",
-    pro: "ไม่จำกัด",
-    business: "ไม่จำกัด",
+    icon: Scale,
+    title: "ย่อและขยายสูตร",
+    description:
+      "ปรับปริมาณวัตถุดิบตามจำนวนที่ต้องการผลิต พร้อมคำนวณปริมาณใหม่",
   },
   {
-    label: "คลังวัตถุดิบ",
-    free: "สูงสุด 30 รายการ",
-    pro: "ไม่จำกัด",
-    business: "ไม่จำกัด",
+    icon: ChefHat,
+    title: "คำนวณโภชนาการ",
+    description:
+      "ช่วยคำนวณข้อมูลโภชนาการของสูตรอาหารจากวัตถุดิบที่บันทึกไว้",
   },
   {
-    label: "ย่อ / ขยายสูตร",
-    free: true,
-    pro: true,
-    business: true,
+    icon: ClipboardList,
+    title: "วางแผนการผลิต",
+    description:
+      "วางแผนปริมาณการผลิตและเตรียมวัตถุดิบสำหรับการทำอาหารแต่ละครั้ง",
   },
   {
-    label: "คำนวณโภชนาการ",
-    free: true,
-    pro: true,
-    business: true,
+    icon: ShoppingCart,
+    title: "Shopping List",
+    description:
+      "จัดรายการวัตถุดิบที่ต้องจัดซื้อจากแผนการผลิต เพื่อเตรียมงานได้สะดวกขึ้น",
   },
   {
-    label: "วางแผนการผลิต",
-    free: false,
-    pro: true,
-    business: true,
+    icon: FileText,
+    title: "SOP และ Kitchen Mode",
+    description:
+      "จัดทำขั้นตอนการทำงานและเปิดดูสูตรหรือวิธีทำระหว่างปฏิบัติงานในครัว",
   },
   {
-    label: "Shopping List",
-    free: false,
-    pro: true,
-    business: true,
+    icon: QrCode,
+    title: "QR Code",
+    description:
+      "สร้างและจัดการ QR Code สำหรับนำไปใช้งานตามความต้องการ",
   },
   {
-    label: "SOP + Kitchen Mode",
-    free: false,
-    pro: true,
-    business: true,
-  },
-  {
-    label: "Export PDF",
-    free: false,
-    pro: true,
-    business: true,
-  },
-  {
-    label: "Export Excel",
-    free: false,
-    pro: true,
-    business: true,
-  },
-  {
-    label: "AI Tools",
-    free: "3 ครั้ง / เดือน",
-    pro: "100 ครั้ง / เดือน",
-    business: "500 ครั้ง / เดือน",
+    icon: FileSpreadsheet,
+    title: "ส่งออกข้อมูล",
+    description:
+      "ใช้ฟังก์ชันส่งออก PDF และ Excel ในส่วนที่ระบบรองรับ",
   },
 ];
 
-function FeatureValue({
-  value,
-}: {
-  value: string | boolean;
-}) {
-  if (value === true) {
-    return (
-      <Check className="w-5 h-5 text-emerald-500 mx-auto" />
-    );
-  }
-
-  if (value === false) {
-    return (
-      <X className="w-5 h-5 text-slate-300 mx-auto" />
-    );
-  }
-
-  return (
-    <span className="text-xs font-semibold text-slate-700">
-      {value}
-    </span>
-  );
-}
-
-const formatDate = (
-  value: string | null
-) => {
-  if (!value) return "-";
-
-  return new Intl.DateTimeFormat(
-    "th-TH",
-    {
-      dateStyle: "medium",
-    }
-  ).format(
-    new Date(value)
-  );
-};
-
 export default function PricingPage() {
-  const {
-    loading: subscriptionLoading,
-    subscription,
-    permissions,
-  } = useSubscription();
-
-  const [
-    billingChoice,
-    setBillingChoice,
-  ] =
-    useState<BillingChoice>(
-      "auto_renew"
-    );
-
-  const [
-    checkoutLoading,
-    setCheckoutLoading,
-  ] = useState(false);
-
-  const [
-    portalLoading,
-    setPortalLoading,
-  ] = useState(false);
-
-  const [
-    message,
-    setMessage,
-  ] = useState("");
-
-  const proPriceLabel =
-    process.env
-      .NEXT_PUBLIC_PRO_MONTHLY_PRICE_LABEL ||
-    "ราคาตามแพ็กเกจ";
-
-  const startCheckout =
-    async () => {
-      setMessage("");
-      setCheckoutLoading(true);
-
-      try {
-        const {
-          data: {
-            session,
-          },
-        } =
-          await supabase.auth.getSession();
-
-        if (
-          !session
-            ?.access_token
-        ) {
-          window.location.href =
-            "/login";
-
-          return;
-        }
-
-        const response =
-          await fetch(
-            "/api/billing/checkout",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${session.access_token}`,
-              },
-
-              body:
-                JSON.stringify({
-                  billingType:
-                    billingChoice,
-                }),
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !result?.url
-        ) {
-          setMessage(
-            result?.error ||
-              "ไม่สามารถเปิดหน้าชำระเงินได้"
-          );
-
-          setCheckoutLoading(
-            false
-          );
-
-          return;
-        }
-
-        window.location.href =
-          result.url;
-      } catch (error) {
-        console.error(
-          "Checkout error:",
-          error
-        );
-
-        setMessage(
-          "ไม่สามารถเปิดหน้าชำระเงินได้"
-        );
-
-        setCheckoutLoading(
-          false
-        );
-      }
-    };
-
-  const openBillingPortal =
-    async () => {
-      setMessage("");
-      setPortalLoading(true);
-
-      try {
-        const {
-          data: {
-            session,
-          },
-        } =
-          await supabase.auth.getSession();
-
-        if (
-          !session
-            ?.access_token
-        ) {
-          window.location.href =
-            "/login";
-
-          return;
-        }
-
-        const response =
-          await fetch(
-            "/api/billing/portal",
-            {
-              method: "POST",
-
-              headers: {
-                Authorization:
-                  `Bearer ${session.access_token}`,
-              },
-            }
-          );
-
-        const result =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !result?.url
-        ) {
-          setMessage(
-            result?.error ||
-              "ไม่สามารถเปิดหน้าจัดการสมาชิกได้"
-          );
-
-          setPortalLoading(
-            false
-          );
-
-          return;
-        }
-
-        window.location.href =
-          result.url;
-      } catch (error) {
-        console.error(
-          "Billing portal error:",
-          error
-        );
-
-        setMessage(
-          "ไม่สามารถเปิดหน้าจัดการสมาชิกได้"
-        );
-
-        setPortalLoading(false);
-      }
-    };
-
-  const hasPaidPlan =
-    !subscriptionLoading &&
-    permissions.plan !==
-      "free";
-
   return (
     <div className="min-h-screen bg-slate-50">
-
       <main className="max-w-6xl mx-auto px-4 py-12 sm:py-16">
         {/* Header */}
-
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
-            <Sparkles className="w-3.5 h-3.5" />
-            ChefAir Kit Membership
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-bold px-4 py-2 rounded-full mb-5">
+            <BadgeCheck className="w-4 h-4" />
+            ChefWorkKit Free Edition
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800">
-            เลือกแพ็กเกจที่เหมาะกับคุณ
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-800 leading-tight">
+            เครื่องมือจัดการสูตรอาหาร
+            <span className="block text-emerald-600 mt-2">
+              ใช้งานฟรี ไม่มีค่าบริการ
+            </span>
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-500 mt-3">
-            เริ่มใช้งานฟรี และเลือกวิธีชำระเงินแบบต่ออายุอัตโนมัติ
-            หรือจ่ายทีละเดือนตามที่สะดวก
+          <p className="text-sm sm:text-base text-slate-500 mt-5 leading-relaxed">
+            รวมเครื่องมือสำหรับเชฟ ร้านอาหาร
+            และผู้ประกอบการอาหาร
+            ตั้งแต่การบันทึกสูตร คำนวณต้นทุน
+            จัดการวัตถุดิบ ไปจนถึงวางแผนการผลิต
+            ในระบบเดียว
           </p>
-        </div>
 
-        {/* Current membership */}
-
-        {!subscriptionLoading && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-slate-100 text-slate-700 p-2.5 rounded-xl">
-                  <BadgeCheck className="w-5 h-5" />
-                </div>
-
-                <div>
-                  <p className="text-xs text-slate-400">
-                    แพ็กเกจปัจจุบัน
-                  </p>
-
-                  <p className="font-extrabold text-slate-800 capitalize mt-0.5">
-                    {permissions.plan}
-                  </p>
-
-                  {permissions.plan !==
-                    "free" &&
-                    subscription.expires_at && (
-                      <p className="text-xs text-slate-500 mt-1 inline-flex items-center gap-1.5">
-                        <CalendarDays className="w-3.5 h-3.5" />
-                        ใช้งานได้ถึง{" "}
-                        {formatDate(
-                          subscription.expires_at
-                        )}
-                      </p>
-                    )}
-                </div>
-              </div>
-
-              {subscription.billing_type ===
-                "stripe_subscription" && (
-                <button
-                  type="button"
-                  onClick={
-                    openBillingPortal
-                  }
-                  disabled={
-                    portalLoading
-                  }
-                  className="inline-flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-sm"
-                >
-                  {portalLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Settings className="w-4 h-4" />
-                  )}
-
-                  จัดการสมาชิก
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {message && (
-          <div className="mb-6 bg-red-50 border border-red-100 text-red-600 rounded-xl px-4 py-3 text-sm">
-            {message}
-          </div>
-        )}
-
-        {/* Plan Cards */}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-          {/* FREE */}
-
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col">
-            <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-5">
-              <Sparkles className="w-6 h-6" />
-            </div>
-
-            <h2 className="text-xl font-extrabold text-slate-800">
-              Free
-            </h2>
-
-            <p className="text-xs text-slate-500 mt-1 min-h-[40px]">
-              สำหรับทดลองใช้งานและผู้เริ่มต้น
-            </p>
-
-            <div className="mt-5">
-              <span className="text-4xl font-extrabold text-slate-800">
-                ฿0
-              </span>
-
-              <span className="text-sm text-slate-400">
-                {" "}
-                / เดือน
-              </span>
-            </div>
-
-            <div className="border-t border-slate-100 my-6" />
-
-            <div className="space-y-3 text-sm text-slate-600 flex-1">
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                คำนวณต้นทุนพื้นฐาน
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                Static QR Code
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                บันทึกสูตรสูงสุด 5 สูตร
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                วัตถุดิบสูงสุด 30 รายการ
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                AI 3 ครั้ง / เดือน
-              </div>
-            </div>
-
-            {permissions.plan ===
-            "free" ? (
-              <div className="mt-7 w-full flex items-center justify-center border border-slate-200 text-slate-500 font-bold py-3 rounded-xl text-sm">
-                แพ็กเกจปัจจุบัน
-              </div>
-            ) : (
-              <Link
-                href="/"
-                className="mt-7 w-full flex items-center justify-center gap-2 border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-600 font-bold py-3 rounded-xl transition text-sm"
-              >
-                กลับหน้าหลัก
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
-
-          {/* PRO */}
-
-          <div className="relative bg-white border-2 border-amber-400 rounded-3xl p-6 shadow-md flex flex-col">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-extrabold px-4 py-1.5 rounded-full whitespace-nowrap">
-              แนะนำ
-            </div>
-
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-5">
-              <Crown className="w-6 h-6" />
-            </div>
-
-            <h2 className="text-xl font-extrabold text-slate-800">
-              Pro
-            </h2>
-
-            <p className="text-xs text-slate-500 mt-1 min-h-[40px]">
-              สำหรับร้านอาหาร เชฟ และผู้ประกอบการ
-            </p>
-
-            <div className="mt-5">
-              <span className="text-3xl font-extrabold text-slate-800">
-                {proPriceLabel}
-              </span>
-
-              <span className="text-sm text-slate-400">
-                {" "}
-                / เดือน
-              </span>
-            </div>
-
-            <div className="border-t border-slate-100 my-6" />
-
-            <div className="space-y-3 text-sm text-slate-600">
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                สูตรและวัตถุดิบไม่จำกัด
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                Advanced Cost
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                Dynamic QR + Analytics
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                Production + Shopping List
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                SOP + Kitchen Mode
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                AI Tools 100 ครั้ง / เดือน
-              </div>
-            </div>
-
-            <div className="mt-6 border-t border-slate-100 pt-5">
-              <p className="text-xs font-bold text-slate-700 mb-3">
-                เลือกวิธีชำระเงิน
-              </p>
-
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBillingChoice(
-                      "auto_renew"
-                    )
-                  }
-                  className={`w-full text-left border rounded-2xl p-3.5 transition ${
-                    billingChoice ===
-                    "auto_renew"
-                      ? "border-amber-400 bg-amber-50"
-                      : "border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <CreditCard className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-
-                    <div>
-                      <p className="text-sm font-extrabold text-slate-800">
-                        ต่ออายุอัตโนมัติ
-                      </p>
-
-                      <p className="text-xs text-slate-500 mt-1">
-                        ชำระด้วยบัตร ต่ออายุทุกเดือน และยกเลิกได้ภายหลัง
-                      </p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBillingChoice(
-                      "promptpay_monthly"
-                    )
-                  }
-                  className={`w-full text-left border rounded-2xl p-3.5 transition ${
-                    billingChoice ===
-                    "promptpay_monthly"
-                      ? "border-violet-400 bg-violet-50"
-                      : "border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <QrCode className="w-5 h-5 text-violet-600 mt-0.5 shrink-0" />
-
-                    <div>
-                      <p className="text-sm font-extrabold text-slate-800">
-                        สแกนจ่ายทีละเดือน
-                      </p>
-
-                      <p className="text-xs text-slate-500 mt-1">
-                        ไม่มีการต่ออายุอัตโนมัติ จ่ายแล้วใช้ Pro 30 วัน
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {permissions.plan ===
-            "pro" ? (
-              <div className="mt-6 w-full flex items-center justify-center border border-amber-200 bg-amber-50 text-amber-700 font-bold py-3 rounded-xl text-sm">
-                แพ็กเกจปัจจุบัน
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={
-                  startCheckout
-                }
-                disabled={
-                  checkoutLoading
-                }
-                className="mt-6 w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition inline-flex items-center justify-center gap-2"
-              >
-                {checkoutLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : billingChoice ===
-                  "auto_renew" ? (
-                  <CreditCard className="w-4 h-4" />
-                ) : (
-                  <QrCode className="w-4 h-4" />
-                )}
-
-                {billingChoice ===
-                "auto_renew"
-                  ? "สมัคร Pro แบบต่ออายุอัตโนมัติ"
-                  : "สมัคร Pro แบบจ่ายทีละเดือน"}
-              </button>
-            )}
-          </div>
-
-          {/* BUSINESS */}
-
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col">
-            <div className="w-12 h-12 bg-slate-800 text-white rounded-2xl flex items-center justify-center mb-5">
-              <Building2 className="w-6 h-6" />
-            </div>
-
-            <h2 className="text-xl font-extrabold text-slate-800">
-              Business
-            </h2>
-
-            <p className="text-xs text-slate-500 mt-1 min-h-[40px]">
-              สำหรับทีมและธุรกิจที่ต้องการใช้งานในระดับสูง
-            </p>
-
-            <div className="mt-5">
-              <span className="text-3xl font-extrabold text-slate-800">
-                เร็ว ๆ นี้
-              </span>
-            </div>
-
-            <div className="border-t border-slate-100 my-6" />
-
-            <div className="space-y-3 text-sm text-slate-600 flex-1">
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                ทุกฟีเจอร์ของ Pro
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                AI Tools 500 ครั้ง / เดือน
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                รองรับการใช้งานเป็นทีม
-              </div>
-
-              <div className="flex gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                รองรับการขยายระบบในอนาคต
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled
-              className="mt-7 w-full bg-slate-100 text-slate-400 font-bold py-3 rounded-xl text-sm cursor-not-allowed"
+          <div className="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/register"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-7 py-3.5 rounded-xl transition text-sm"
             >
-              เปิดให้บริการเร็ว ๆ นี้
-            </button>
+              เริ่มใช้งานฟรี
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <Link
+              href="/login"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 font-bold px-7 py-3.5 rounded-xl transition text-sm"
+            >
+              <LockKeyhole className="w-4 h-4" />
+              เข้าสู่ระบบ
+            </Link>
           </div>
         </div>
 
-        {/* Comparison */}
+        {/* Free Access */}
+        <section className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8 mb-12">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-8 h-8" />
+            </div>
 
-        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
-            <h2 className="text-lg font-extrabold text-slate-800">
-              เปรียบเทียบแพ็กเกจ
+            <div className="flex-1">
+              <h2 className="text-xl font-extrabold text-slate-800">
+                ทุกฟีเจอร์ทั่วไป เปิดให้ใช้ฟรี
+              </h2>
+
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                ไม่ต้องสมัครแพ็กเกจ Pro
+                ไม่มีค่าบริการรายเดือน
+                และไม่มีการเรียกเก็บเงินผ่านระบบ
+              </p>
+            </div>
+
+            <div className="sm:text-right shrink-0">
+              <p className="text-4xl font-extrabold text-emerald-600">
+                ฿0
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                ไม่มีค่าสมาชิก
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-slate-100 flex items-start gap-3">
+            <Check className="w-5 h-5 text-emerald-500 shrink-0" />
+            <p className="text-sm text-slate-600">
+              สมัครบัญชีเพื่อบันทึกและจัดการข้อมูลของคุณผ่านระบบออนไลน์
+            </p>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+              เครื่องมือที่เปิดให้ใช้งาน
             </h2>
 
-            <p className="text-xs text-slate-500 mt-1">
-              เลือกใช้งานตามขนาดและรูปแบบงานของคุณ
+            <p className="text-sm text-slate-500 mt-2">
+              ใช้งานฟีเจอร์ที่ไม่พึ่งพา AI
+              โดยไม่มีข้อจำกัดจากแพ็กเกจสมาชิก
             </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="text-left px-6 py-4 font-bold text-slate-700">
-                    ฟีเจอร์
-                  </th>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {features.map((feature) => {
+              const Icon = feature.icon;
 
-                  <th className="px-4 py-4 font-bold text-slate-700">
-                    Free
-                  </th>
+              return (
+                <div
+                  key={feature.title}
+                  className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+                    <Icon className="w-6 h-6" />
+                  </div>
 
-                  <th className="px-4 py-4 font-bold text-amber-600">
-                    Pro
-                  </th>
+                  <h3 className="font-extrabold text-slate-800">
+                    {feature.title}
+                  </h3>
 
-                  <th className="px-4 py-4 font-bold text-slate-700">
-                    Business
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {features.map(
-                  (feature) => (
-                    <tr
-                      key={
-                        feature.label
-                      }
-                      className="border-t border-slate-100"
-                    >
-                      <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                        {
-                          feature.label
-                        }
-                      </td>
-
-                      <td className="px-4 py-4 text-center">
-                        <FeatureValue
-                          value={
-                            feature.free
-                          }
-                        />
-                      </td>
-
-                      <td className="px-4 py-4 text-center bg-amber-50/30">
-                        <FeatureValue
-                          value={
-                            feature.pro
-                          }
-                        />
-                      </td>
-
-                      <td className="px-4 py-4 text-center">
-                        <FeatureValue
-                          value={
-                            feature.business
-                          }
-                        />
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
+                  <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
+        </section>
+
+        {/* Footer CTA */}
+        <section className="mt-12 bg-slate-900 rounded-3xl p-7 sm:p-10 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
+            พร้อมจัดการสูตรอาหารอย่างเป็นระบบแล้วหรือยัง?
+          </h2>
+
+          <p className="text-sm text-slate-300 mt-3 max-w-xl mx-auto leading-relaxed">
+            เริ่มบันทึกสูตร คำนวณต้นทุน
+            และจัดการวัตถุดิบของคุณได้ฟรี
+          </p>
+
+          <Link
+            href="/register"
+            className="mt-6 inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-7 py-3.5 rounded-xl transition text-sm"
+          >
+            เริ่มต้นใช้งาน
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </section>
       </main>
     </div>

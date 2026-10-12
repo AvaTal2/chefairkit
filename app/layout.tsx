@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ChefAir Kit",
+  title: "ChefWorkKit",
   description:
-    "เครื่องมือสำหรับคำนวณสูตร ต้นทุน จัดการวัตถุดิบ โภชนาการ และ QR Code สำหรับร้านอาหารและธุรกิจ",
+    "ChefWorkKit เครื่องมือฟรีสำหรับจัดการสูตรอาหาร คำนวณต้นทุน จัดการวัตถุดิบ สร้าง SOP วางแผนการผลิต และสร้าง QR Code สำหรับร้านอาหารและธุรกิจ",
 };
 
 export default function RootLayout({
@@ -31,9 +31,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-slate-50">
         <Navbar />
 
-        <div className="flex-1">
-          {children}
-        </div>
+        <div className="flex-1">{children}</div>
       </body>
     </html>
   );

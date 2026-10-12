@@ -4,24 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { useSubscription } from "@/hooks/useSubscription";
 
 type IngredientItem = {
   id: string;
   user_id: string;
   name: string;
   brand: string | null;
-
   pack_quantity: number;
   pack_unit: string;
   pack_price: number;
-
   category: string | null;
   notes: string | null;
-
   nutrition_basis_quantity: number | null;
   nutrition_basis_unit: string | null;
-
   calories_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -29,10 +24,8 @@ type IngredientItem = {
   sugar_g: number | null;
   fiber_g: number | null;
   sodium_mg: number | null;
-
   nutrition_source: string | null;
   nutrition_verified: boolean | null;
-
   created_at: string;
   updated_at: string;
 };
@@ -40,17 +33,13 @@ type IngredientItem = {
 type FormState = {
   name: string;
   brand: string;
-
   packQuantity: string;
   packUnit: string;
   packPrice: string;
-
   category: string;
   notes: string;
-
   nutritionBasisQuantity: string;
   nutritionBasisUnit: string;
-
   calories: string;
   protein: string;
   carbs: string;
@@ -58,7 +47,6 @@ type FormState = {
   sugar: string;
   fiber: string;
   sodium: string;
-
   nutritionSource: string;
   nutritionVerified: boolean;
 };
@@ -66,17 +54,13 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   name: "",
   brand: "",
-
   packQuantity: "",
   packUnit: "g",
   packPrice: "",
-
   category: "",
   notes: "",
-
   nutritionBasisQuantity: "100",
   nutritionBasisUnit: "g",
-
   calories: "",
   protein: "",
   carbs: "",
@@ -84,18 +68,47 @@ const EMPTY_FORM: FormState = {
   sugar: "",
   fiber: "",
   sodium: "",
-
   nutritionSource: "",
   nutritionVerified: false,
 };
 
+const PACK_UNITS = [
+  { value: "g", label: "กรัม" },
+  { value: "kg", label: "กิโลกรัม" },
+  { value: "ml", label: "มิลลิลิตร" },
+  { value: "l", label: "ลิตร" },
+  { value: "piece", label: "ชิ้น" },
+  { value: "pack", label: "แพ็ก" },
+  { value: "bottle", label: "ขวด" },
+  { value: "bag", label: "ถุง" },
+  { value: "box", label: "กล่อง" },
+];
+
+const NUTRITION_FIELDS: {
+  key: keyof Pick<
+    FormState,
+    | "calories"
+    | "protein"
+    | "carbs"
+    | "fat"
+    | "sugar"
+    | "fiber"
+    | "sodium"
+  >;
+  label: string;
+  unit: string;
+}[] = [
+  { key: "calories", label: "พลังงาน", unit: "kcal" },
+  { key: "protein", label: "โปรตีน", unit: "g" },
+  { key: "carbs", label: "คาร์โบไฮเดรต", unit: "g" },
+  { key: "fat", label: "ไขมัน", unit: "g" },
+  { key: "sugar", label: "น้ำตาล", unit: "g" },
+  { key: "fiber", label: "ใยอาหาร", unit: "g" },
+  { key: "sodium", label: "โซเดียม", unit: "mg" },
+];
+
 export default function IngredientsPage() {
   const router = useRouter();
-
-  const {
-    loading: subscriptionLoading,
-    permissions,
-  } = useSubscription();
 
   const [ingredients, setIngredients] = useState<IngredientItem[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -105,17 +118,15 @@ export default function IngredientsPage() {
     useState<IngredientItem | null>(null);
 
   const [search, setSearch] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
     "success" | "error" | ""
   >("");
 
   useEffect(() => {
-    loadIngredients();
+    void loadIngredients();
   }, []);
 
   const loadIngredients = async () => {
@@ -126,6 +137,7 @@ export default function IngredientsPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setLoading(false);
       router.push("/login");
       return;
     }
@@ -148,15 +160,6 @@ export default function IngredientsPage() {
     setIngredients(data || []);
     setLoading(false);
   };
-
-  const ingredientLimit =
-    permissions.isFree
-      ? 30
-      : null;
-
-  const ingredientLimitReached =
-    ingredientLimit !== null &&
-    ingredients.length >= ingredientLimit;
 
   const filteredIngredients = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -195,20 +198,15 @@ export default function IngredientsPage() {
     setForm({
       name: item.name || "",
       brand: item.brand || "",
-
       packQuantity: String(item.pack_quantity ?? ""),
       packUnit: item.pack_unit || "g",
       packPrice: String(item.pack_price ?? ""),
-
       category: item.category || "",
       notes: item.notes || "",
-
       nutritionBasisQuantity: String(
         item.nutrition_basis_quantity ?? 100
       ),
-      nutritionBasisUnit:
-        item.nutrition_basis_unit || "g",
-
+      nutritionBasisUnit: item.nutrition_basis_unit || "g",
       calories: String(item.calories_kcal ?? ""),
       protein: String(item.protein_g ?? ""),
       carbs: String(item.carbs_g ?? ""),
@@ -216,10 +214,8 @@ export default function IngredientsPage() {
       sugar: String(item.sugar_g ?? ""),
       fiber: String(item.fiber_g ?? ""),
       sodium: String(item.sodium_mg ?? ""),
-
       nutritionSource: item.nutrition_source || "",
-      nutritionVerified:
-        item.nutrition_verified || false,
+      nutritionVerified: item.nutrition_verified || false,
     });
 
     setMessage("");
@@ -253,9 +249,7 @@ export default function IngredientsPage() {
     return error;
   };
 
-  const handleSave = async (
-    e: React.FormEvent
-  ) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setSaving(true);
@@ -267,60 +261,14 @@ export default function IngredientsPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setSaving(false);
       router.push("/login");
       return;
     }
 
-    if (
-      !editingId &&
-      ingredientLimit !== null
-    ) {
-      const {
-        count: latestIngredientCount,
-        error: ingredientCountError,
-      } = await supabase
-        .from("ingredients")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("user_id", user.id);
-
-      if (ingredientCountError) {
-        setMessage(
-          "ตรวจสอบจำนวนวัตถุดิบไม่สำเร็จ: " +
-            ingredientCountError.message
-        );
-
-        setMessageType("error");
-        setSaving(false);
-        return;
-      }
-
-      if (
-        (latestIngredientCount || 0) >=
-        ingredientLimit
-      ) {
-        setMessage(
-          `แพ็กเกจ Free เพิ่มวัตถุดิบได้สูงสุด ${ingredientLimit} รายการ`
-        );
-
-        setMessageType("error");
-        setSaving(false);
-        return;
-      }
-    }
-
     const name = form.name.trim();
-
-    const packQuantity = Number(
-      form.packQuantity || 0
-    );
-
-    const packPrice = Number(
-      form.packPrice || 0
-    );
-
+    const packQuantity = Number(form.packQuantity || 0);
+    const packPrice = Number(form.packPrice || 0);
     const nutritionBasisQuantity = Number(
       form.nutritionBasisQuantity || 100
     );
@@ -333,6 +281,9 @@ export default function IngredientsPage() {
     }
 
     if (
+      !Number.isFinite(packQuantity) ||
+      !Number.isFinite(packPrice) ||
+      !Number.isFinite(nutritionBasisQuantity) ||
       packQuantity < 0 ||
       packPrice < 0 ||
       nutritionBasisQuantity <= 0
@@ -347,84 +298,46 @@ export default function IngredientsPage() {
 
     const payload = {
       user_id: user.id,
-
       name,
-
-      brand:
-        form.brand.trim() || null,
-
-      pack_quantity:
-        packQuantity,
-
-      pack_unit:
-        form.packUnit,
-
-      pack_price:
-        packPrice,
-
-      category:
-        form.category.trim() || null,
-
-      notes:
-        form.notes.trim() || null,
-
-      nutrition_basis_quantity:
-        nutritionBasisQuantity,
-
-      nutrition_basis_unit:
-        form.nutritionBasisUnit,
-
-      calories_kcal:
-        Number(form.calories || 0),
-
-      protein_g:
-        Number(form.protein || 0),
-
-      carbs_g:
-        Number(form.carbs || 0),
-
-      fat_g:
-        Number(form.fat || 0),
-
-      sugar_g:
-        Number(form.sugar || 0),
-
-      fiber_g:
-        Number(form.fiber || 0),
-
-      sodium_mg:
-        Number(form.sodium || 0),
-
-      nutrition_source:
-        form.nutritionSource.trim() || null,
-
-      nutrition_verified:
-        form.nutritionVerified,
+      brand: form.brand.trim() || null,
+      pack_quantity: packQuantity,
+      pack_unit: form.packUnit,
+      pack_price: packPrice,
+      category: form.category.trim() || null,
+      notes: form.notes.trim() || null,
+      nutrition_basis_quantity: nutritionBasisQuantity,
+      nutrition_basis_unit: form.nutritionBasisUnit,
+      calories_kcal: Number(form.calories || 0),
+      protein_g: Number(form.protein || 0),
+      carbs_g: Number(form.carbs || 0),
+      fat_g: Number(form.fat || 0),
+      sugar_g: Number(form.sugar || 0),
+      fiber_g: Number(form.fiber || 0),
+      sodium_mg: Number(form.sodium || 0),
+      nutrition_source: form.nutritionSource.trim() || null,
+      nutrition_verified: form.nutritionVerified,
     };
 
     if (editingId) {
       const priceChanged =
         editingOriginal &&
         (
-          Number(editingOriginal.pack_price) !==
-            packPrice ||
-          Number(
-            editingOriginal.pack_quantity
-          ) !== packQuantity ||
-          editingOriginal.pack_unit !==
-            form.packUnit ||
+          Number(editingOriginal.pack_price) !== packPrice ||
+          Number(editingOriginal.pack_quantity) !==
+            packQuantity ||
+          editingOriginal.pack_unit !== form.packUnit ||
           editingOriginal.name !== name
         );
 
       const { error } = await supabase
         .from("ingredients")
         .update(payload)
-        .eq("id", editingId);
+        .eq("id", editingId)
+        .eq("user_id", user.id);
 
       if (error) {
         setMessage(
-          "แก้ไขวัตถุดิบไม่สำเร็จ: " +
-            error.message
+          "แก้ไขวัตถุดิบไม่สำเร็จ: " + error.message
         );
         setMessageType("error");
         setSaving(false);
@@ -443,49 +356,31 @@ export default function IngredientsPage() {
             count: "exact",
             head: true,
           })
-          .eq(
-            "ingredient_id",
-            editingId
-          );
+          .eq("ingredient_id", editingId);
 
-        if (
-          !countError &&
-          count &&
-          count > 0
-        ) {
-          const shouldSync =
-            window.confirm(
-              `วัตถุดิบ "${name}" ถูกใช้ใน ${count} สูตร\n\n` +
-                `ต้องการอัปเดตราคาและขนาดแพ็กใหม่ไปยังสูตรที่เชื่อมทั้งหมดหรือไม่?\n\n` +
-                `กด OK = อัปเดตทุกสูตร\n` +
-                `กด Cancel = เก็บราคาเดิมในสูตรไว้`
-            );
+        if (!countError && count && count > 0) {
+          const shouldSync = window.confirm(
+            `วัตถุดิบ "${name}" ถูกใช้ใน ${count} สูตร\n\n` +
+              "ต้องการอัปเดตราคาและขนาดแพ็กใหม่ไปยังสูตรที่เชื่อมทั้งหมดหรือไม่?\n\n" +
+              "กด OK = อัปเดตทุกสูตร\n" +
+              "กด Cancel = เก็บราคาเดิมในสูตรไว้"
+          );
 
           if (shouldSync) {
             const syncError =
-              await syncIngredientToRecipes(
-                editingId,
-                {
-                  name,
-                  pack_quantity:
-                    packQuantity,
-                  pack_unit:
-                    form.packUnit,
-                  pack_price:
-                    packPrice,
-                }
-              );
+              await syncIngredientToRecipes(editingId, {
+                name,
+                pack_quantity: packQuantity,
+                pack_unit: form.packUnit,
+                pack_price: packPrice,
+              });
 
             if (syncError) {
               setMessage(
                 "แก้ไขวัตถุดิบแล้ว แต่ Sync สูตรไม่สำเร็จ: " +
                   syncError.message
               );
-
-              setMessageType(
-                "error"
-              );
-
+              setMessageType("error");
               setSaving(false);
               return;
             }
@@ -496,7 +391,6 @@ export default function IngredientsPage() {
       }
 
       resetForm();
-
       await loadIngredients();
 
       setMessage(
@@ -516,49 +410,48 @@ export default function IngredientsPage() {
 
     if (error) {
       setMessage(
-        "เพิ่มวัตถุดิบไม่สำเร็จ: " +
-          error.message
+        "เพิ่มวัตถุดิบไม่สำเร็จ: " + error.message
       );
-
       setMessageType("error");
       setSaving(false);
       return;
     }
 
     resetForm();
-
     await loadIngredients();
 
-    setMessage(
-      "เพิ่มวัตถุดิบเข้าคลังเรียบร้อยแล้ว"
-    );
-
+    setMessage("เพิ่มวัตถุดิบเข้าคลังเรียบร้อยแล้ว");
     setMessageType("success");
     setSaving(false);
   };
 
-  const handleDelete = async (
-    item: IngredientItem
-  ) => {
-    const confirmed =
-      window.confirm(
-        `ต้องการลบ "${item.name}" ออกจากคลังวัตถุดิบใช่หรือไม่?\n\n` +
-          `สูตรเดิมจะไม่ถูกลบ แต่จะเลิกเชื่อมกับวัตถุดิบรายการนี้`
-      );
+  const handleDelete = async (item: IngredientItem) => {
+    const confirmed = window.confirm(
+      `ต้องการลบ "${item.name}" ออกจากคลังวัตถุดิบใช่หรือไม่?\n\n` +
+        "สูตรเดิมจะไม่ถูกลบ แต่จะเลิกเชื่อมกับวัตถุดิบรายการนี้"
+    );
 
     if (!confirmed) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
 
     const { error } = await supabase
       .from("ingredients")
       .delete()
-      .eq("id", item.id);
+      .eq("id", item.id)
+      .eq("user_id", user.id);
 
     if (error) {
       setMessage(
-        "ลบวัตถุดิบไม่สำเร็จ: " +
-          error.message
+        "ลบวัตถุดิบไม่สำเร็จ: " + error.message
       );
-
       setMessageType("error");
       return;
     }
@@ -569,53 +462,31 @@ export default function IngredientsPage() {
 
     await loadIngredients();
 
-    setMessage(
-      `ลบ "${item.name}" เรียบร้อยแล้ว`
-    );
-
+    setMessage(`ลบ "${item.name}" เรียบร้อยแล้ว`);
     setMessageType("success");
   };
 
-  const calculateUnitCost = (
-    item: IngredientItem
-  ) => {
-    const qty = Number(
-      item.pack_quantity || 0
-    );
+  const calculateUnitCost = (item: IngredientItem) => {
+    const qty = Number(item.pack_quantity || 0);
+    const price = Number(item.pack_price || 0);
 
-    const price = Number(
-      item.pack_price || 0
-    );
-
-    if (
-      qty <= 0 ||
-      price <= 0
-    ) {
+    if (qty <= 0 || price <= 0) {
       return 0;
     }
 
     return price / qty;
   };
 
-  const formatNumber = (
-    value: number
-  ) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      "th-TH",
-      {
-        maximumFractionDigits: 3,
-      }
-    );
+  const formatNumber = (value: number) => {
+    return Number(value || 0).toLocaleString("th-TH", {
+      maximumFractionDigits: 3,
+    });
   };
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="max-w-7xl mx-auto">
-
         {/* HEADER */}
-
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
@@ -636,43 +507,7 @@ export default function IngredientsPage() {
           </div>
         </div>
 
-        {!subscriptionLoading &&
-          ingredientLimit !== null && (
-          <div
-            className={`mb-5 rounded-2xl border px-5 py-4 ${
-              ingredientLimitReached
-                ? "bg-amber-50 border-amber-200"
-                : "bg-white border-slate-200"
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-slate-800">
-                  วัตถุดิบที่บันทึกไว้ {ingredients.length} / {ingredientLimit}
-                </p>
-
-                <p className="text-xs text-slate-500 mt-1">
-                  แพ็กเกจ Free เพิ่มวัตถุดิบได้สูงสุด {ingredientLimit} รายการ
-                </p>
-              </div>
-
-              {ingredientLimitReached && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push("/pricing")
-                  }
-                  className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm"
-                >
-                  ดูแพ็กเกจ Pro
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* MESSAGE */}
-
         {message && (
           <div
             className={`mb-5 rounded-xl px-4 py-3 text-sm border ${
@@ -686,11 +521,7 @@ export default function IngredientsPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-          {/* =====================================================
-              FORM
-          ===================================================== */}
-
+          {/* FORM */}
           <section className="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <div className="flex items-start justify-between gap-3 mb-6">
               <div>
@@ -701,10 +532,7 @@ export default function IngredientsPage() {
                 </h2>
 
                 <p className="text-xs text-slate-400 mt-1">
-                  {!editingId &&
-                  ingredientLimitReached
-                    ? "ถึงจำนวนวัตถุดิบสูงสุดของแพ็กเกจ Free แล้ว"
-                    : "ข้อมูลต้นทุนและโภชนาการของวัตถุดิบ"}
+                  ข้อมูลต้นทุนและโภชนาการของวัตถุดิบ
                 </p>
               </div>
 
@@ -723,9 +551,7 @@ export default function IngredientsPage() {
               onSubmit={handleSave}
               className="space-y-6"
             >
-
               {/* BASIC */}
-
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-800">
                   ข้อมูลวัตถุดิบ
@@ -739,10 +565,7 @@ export default function IngredientsPage() {
                   <input
                     value={form.name}
                     onChange={(e) =>
-                      updateForm(
-                        "name",
-                        e.target.value
-                      )
+                      updateForm("name", e.target.value)
                     }
                     required
                     placeholder="เช่น มายองเนส"
@@ -758,10 +581,7 @@ export default function IngredientsPage() {
                   <input
                     value={form.brand}
                     onChange={(e) =>
-                      updateForm(
-                        "brand",
-                        e.target.value
-                      )
+                      updateForm("brand", e.target.value)
                     }
                     placeholder="เช่น ARO"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm"
@@ -778,9 +598,7 @@ export default function IngredientsPage() {
                       type="number"
                       min="0"
                       step="0.001"
-                      value={
-                        form.packQuantity
-                      }
+                      value={form.packQuantity}
                       onChange={(e) =>
                         updateForm(
                           "packQuantity",
@@ -798,9 +616,7 @@ export default function IngredientsPage() {
                     </label>
 
                     <select
-                      value={
-                        form.packUnit
-                      }
+                      value={form.packUnit}
                       onChange={(e) =>
                         updateForm(
                           "packUnit",
@@ -809,41 +625,14 @@ export default function IngredientsPage() {
                       }
                       className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm bg-white"
                     >
-                      <option value="g">
-                        กรัม
-                      </option>
-
-                      <option value="kg">
-                        กิโลกรัม
-                      </option>
-
-                      <option value="ml">
-                        มิลลิลิตร
-                      </option>
-
-                      <option value="l">
-                        ลิตร
-                      </option>
-
-                      <option value="piece">
-                        ชิ้น
-                      </option>
-
-                      <option value="pack">
-                        แพ็ก
-                      </option>
-
-                      <option value="bottle">
-                        ขวด
-                      </option>
-
-                      <option value="bag">
-                        ถุง
-                      </option>
-
-                      <option value="box">
-                        กล่อง
-                      </option>
+                      {PACK_UNITS.map((unit) => (
+                        <option
+                          key={unit.value}
+                          value={unit.value}
+                        >
+                          {unit.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -857,9 +646,7 @@ export default function IngredientsPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={
-                      form.packPrice
-                    }
+                    value={form.packPrice}
                     onChange={(e) =>
                       updateForm(
                         "packPrice",
@@ -877,9 +664,7 @@ export default function IngredientsPage() {
                   </label>
 
                   <input
-                    value={
-                      form.category
-                    }
+                    value={form.category}
                     onChange={(e) =>
                       updateForm(
                         "category",
@@ -893,7 +678,6 @@ export default function IngredientsPage() {
               </div>
 
               {/* NUTRITION */}
-
               <div className="border-t border-slate-100 pt-6 space-y-4">
                 <div>
                   <h3 className="font-bold text-slate-800">
@@ -915,9 +699,7 @@ export default function IngredientsPage() {
                       type="number"
                       min="0.001"
                       step="0.001"
-                      value={
-                        form.nutritionBasisQuantity
-                      }
+                      value={form.nutritionBasisQuantity}
                       onChange={(e) =>
                         updateForm(
                           "nutritionBasisQuantity",
@@ -934,9 +716,7 @@ export default function IngredientsPage() {
                     </label>
 
                     <select
-                      value={
-                        form.nutritionBasisUnit
-                      }
+                      value={form.nutritionBasisUnit}
                       onChange={(e) =>
                         updateForm(
                           "nutritionBasisUnit",
@@ -945,101 +725,24 @@ export default function IngredientsPage() {
                       }
                       className="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm bg-white"
                     >
-                      <option value="g">
-                        g
-                      </option>
-
-                      <option value="ml">
-                        ml
-                      </option>
+                      <option value="g">g</option>
+                      <option value="ml">ml</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <NutritionInput
-                    label="พลังงาน"
-                    unit="kcal"
-                    value={form.calories}
-                    onChange={(value) =>
-                      updateForm(
-                        "calories",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="โปรตีน"
-                    unit="g"
-                    value={form.protein}
-                    onChange={(value) =>
-                      updateForm(
-                        "protein",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="คาร์โบไฮเดรต"
-                    unit="g"
-                    value={form.carbs}
-                    onChange={(value) =>
-                      updateForm(
-                        "carbs",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="ไขมัน"
-                    unit="g"
-                    value={form.fat}
-                    onChange={(value) =>
-                      updateForm(
-                        "fat",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="น้ำตาล"
-                    unit="g"
-                    value={form.sugar}
-                    onChange={(value) =>
-                      updateForm(
-                        "sugar",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="ใยอาหาร"
-                    unit="g"
-                    value={form.fiber}
-                    onChange={(value) =>
-                      updateForm(
-                        "fiber",
-                        value
-                      )
-                    }
-                  />
-
-                  <NutritionInput
-                    label="โซเดียม"
-                    unit="mg"
-                    value={form.sodium}
-                    onChange={(value) =>
-                      updateForm(
-                        "sodium",
-                        value
-                      )
-                    }
-                  />
+                  {NUTRITION_FIELDS.map((field) => (
+                    <NutritionInput
+                      key={field.key}
+                      label={field.label}
+                      unit={field.unit}
+                      value={form[field.key]}
+                      onChange={(value) =>
+                        updateForm(field.key, value)
+                      }
+                    />
+                  ))}
                 </div>
 
                 <div>
@@ -1048,9 +751,7 @@ export default function IngredientsPage() {
                   </label>
 
                   <select
-                    value={
-                      form.nutritionSource
-                    }
+                    value={form.nutritionSource}
                     onChange={(e) =>
                       updateForm(
                         "nutritionSource",
@@ -1062,25 +763,17 @@ export default function IngredientsPage() {
                     <option value="">
                       เลือกแหล่งข้อมูล
                     </option>
-
                     <option value="product_label">
                       ฉลากสินค้า
                     </option>
-
                     <option value="thai_food_composition">
                       Thai Food Composition
                     </option>
-
                     <option value="usda">
                       USDA
                     </option>
-
                     <option value="manual">
                       กรอกเอง
-                    </option>
-
-                    <option value="ai_assisted">
-                      AI ช่วยค้นหา
                     </option>
                   </select>
                 </div>
@@ -1088,9 +781,7 @@ export default function IngredientsPage() {
                 <label className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-xl p-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={
-                      form.nutritionVerified
-                    }
+                    checked={form.nutritionVerified}
                     onChange={(e) =>
                       updateForm(
                         "nutritionVerified",
@@ -1106,7 +797,6 @@ export default function IngredientsPage() {
               </div>
 
               {/* NOTES */}
-
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   หมายเหตุ
@@ -1115,10 +805,7 @@ export default function IngredientsPage() {
                 <textarea
                   value={form.notes}
                   onChange={(e) =>
-                    updateForm(
-                      "notes",
-                      e.target.value
-                    )
+                    updateForm("notes", e.target.value)
                   }
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm resize-none"
@@ -1127,31 +814,20 @@ export default function IngredientsPage() {
 
               <button
                 type="submit"
-                disabled={
-                  saving ||
-                  subscriptionLoading ||
-                  (!editingId &&
-                    ingredientLimitReached)
-                }
+                disabled={saving}
                 className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3 rounded-xl"
               >
                 {saving
                   ? "กำลังบันทึก..."
                   : editingId
                     ? "บันทึกการแก้ไข"
-                    : ingredientLimitReached
-                      ? "ถึงจำนวนวัตถุดิบสูงสุดแล้ว"
-                      : "เพิ่มเข้าคลัง"}
+                    : "เพิ่มเข้าคลัง"}
               </button>
             </form>
           </section>
 
-          {/* =====================================================
-              TABLE
-          ===================================================== */}
-
+          {/* TABLE */}
           <section className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-
             <div className="p-6 border-b border-slate-100">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -1167,9 +843,7 @@ export default function IngredientsPage() {
                 <input
                   value={search}
                   onChange={(e) =>
-                    setSearch(
-                      e.target.value
-                    )
+                    setSearch(e.target.value)
                   }
                   placeholder="ค้นหา..."
                   className="w-full md:w-64 px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
@@ -1187,155 +861,125 @@ export default function IngredientsPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {filteredIngredients.map(
-                  (item) => {
-                    const unitCost =
-                      calculateUnitCost(
-                        item
-                      );
+                {filteredIngredients.map((item) => {
+                  const unitCost =
+                    calculateUnitCost(item);
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-5 hover:bg-slate-50"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-5 hover:bg-slate-50"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div>
+                          <Link
+                            href={`/ingredients/${item.id}`}
+                            className="font-bold text-slate-800 hover:text-amber-600"
+                          >
+                            {item.name}
+                          </Link>
 
-                          <div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            {item.brand ||
+                              "ไม่ระบุแบรนด์"}
+                            {" • "}
+                            {formatNumber(
+                              item.pack_quantity
+                            )}{" "}
+                            {item.pack_unit}
+                            {" • "}
+                            {Number(
+                              item.pack_price
+                            ).toFixed(2)}{" "}
+                            บาท
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <NutritionBadge
+                              text={`${Number(
+                                item.calories_kcal || 0
+                              ).toFixed(0)} kcal`}
+                            />
+
+                            <NutritionBadge
+                              text={`P ${Number(
+                                item.protein_g || 0
+                              ).toFixed(1)} g`}
+                            />
+
+                            <NutritionBadge
+                              text={`C ${Number(
+                                item.carbs_g || 0
+                              ).toFixed(1)} g`}
+                            />
+
+                            <NutritionBadge
+                              text={`F ${Number(
+                                item.fat_g || 0
+                              ).toFixed(1)} g`}
+                            />
+
+                            {item.nutrition_verified && (
+                              <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg font-semibold">
+                                ✓ ตรวจแล้ว
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-slate-400 mt-2">
+                            ต่อ{" "}
+                            {item.nutrition_basis_quantity ||
+                              100}{" "}
+                            {item.nutrition_basis_unit ||
+                              "g"}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-slate-700">
+                            {unitCost > 0
+                              ? `${unitCost.toFixed(
+                                  4
+                                )} บาท/${item.pack_unit}`
+                              : "-"}
+                          </div>
+
+                          <div className="flex gap-2 mt-3">
                             <Link
                               href={`/ingredients/${item.id}`}
-                              className="font-bold text-slate-800 hover:text-amber-600"
+                              className="px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 text-xs font-bold"
                             >
-                              {item.name}
+                              รายละเอียด
                             </Link>
 
-                            <div className="text-xs text-slate-400 mt-1">
-                              {item.brand || "ไม่ระบุแบรนด์"}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEdit(item)
+                              }
+                              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold"
+                            >
+                              แก้ไข
+                            </button>
 
-                              {" • "}
-
-                              {formatNumber(
-                                item.pack_quantity
-                              )}{" "}
-                              {item.pack_unit}
-
-                              {" • "}
-
-                              {Number(
-                                item.pack_price
-                              ).toFixed(
-                                2
-                              )}{" "}
-                              บาท
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <NutritionBadge
-                                text={`${Number(
-                                  item.calories_kcal ||
-                                    0
-                                ).toFixed(
-                                  0
-                                )} kcal`}
-                              />
-
-                              <NutritionBadge
-                                text={`P ${Number(
-                                  item.protein_g ||
-                                    0
-                                ).toFixed(
-                                  1
-                                )} g`}
-                              />
-
-                              <NutritionBadge
-                                text={`C ${Number(
-                                  item.carbs_g ||
-                                    0
-                                ).toFixed(
-                                  1
-                                )} g`}
-                              />
-
-                              <NutritionBadge
-                                text={`F ${Number(
-                                  item.fat_g ||
-                                    0
-                                ).toFixed(
-                                  1
-                                )} g`}
-                              />
-
-                              {item.nutrition_verified && (
-                                <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg font-semibold">
-                                  ✓ ตรวจแล้ว
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="text-xs text-slate-400 mt-2">
-                              ต่อ{" "}
-                              {item.nutrition_basis_quantity ||
-                                100}{" "}
-                              {item.nutrition_basis_unit ||
-                                "g"}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDelete(item)
+                              }
+                              className="px-3 py-1.5 rounded-lg border border-red-100 text-red-500 text-xs font-bold"
+                            >
+                              ลบ
+                            </button>
                           </div>
-
-                          <div className="text-right">
-                            <div className="text-sm font-bold text-slate-700">
-                              {unitCost >
-                              0
-                                ? `${unitCost.toFixed(
-                                    4
-                                  )} บาท/${item.pack_unit}`
-                                : "-"}
-                            </div>
-
-                            <div className="flex gap-2 mt-3">
-                              <Link
-                                href={`/ingredients/${item.id}`}
-                                className="px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 text-xs font-bold"
-                              >
-                                รายละเอียด
-                              </Link>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleEdit(
-                                    item
-                                  )
-                                }
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold"
-                              >
-                                แก้ไข
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDelete(
-                                    item
-                                  )
-                                }
-                                className="px-3 py-1.5 rounded-lg border border-red-100 text-red-500 text-xs font-bold"
-                              >
-                                ลบ
-                              </button>
-                            </div>
-                          </div>
-
                         </div>
                       </div>
-                    );
-                  }
-                )}
+                    </div>
+                  );
+                })}
               </div>
             )}
-
           </section>
-
         </div>
       </div>
     </main>
@@ -1366,9 +1010,7 @@ function NutritionInput({
           step="0.001"
           value={value}
           onChange={(e) =>
-            onChange(
-              e.target.value
-            )
+            onChange(e.target.value)
           }
           className="w-full px-3 py-2.5 pr-12 rounded-xl border border-slate-200 text-sm"
         />

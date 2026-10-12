@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
-import { useSubscription } from "@/hooks/useSubscription";
 
 type Recipe = {
   id: string;
@@ -48,7 +47,6 @@ type RecipeIngredient = {
   pack_price: number | null;
   pack_quantity: number | null;
   pack_unit: string | null;
-
   ingredient: LinkedIngredient | null;
 };
 
@@ -57,151 +55,112 @@ type ProductionStatus = "planned" | "in_progress" | "done";
 
 type CalculatedIngredient = RecipeIngredient & {
   productionQuantity: number;
-
   prepYieldPercent: number;
   cookingYieldPercent: number;
   overallYieldPercent: number;
-
   beforeCookingQuantity: number;
   rawPurchaseQuantity: number;
-
   packUnit: string;
-
   requiredInPackUnit: number | null;
-
   usedCost: number;
-
   canCalculatePurchase: boolean;
 };
 
 type ProductionPlanItem = {
   planId: string;
-
   recipeId: string;
   recipeName: string;
-
   mode: ProductionMode;
-
   targetAmount: number;
   targetUnit: string;
-
   factor: number;
-
   fullBatches: number;
   partialBatchPercent: number;
-
   productionYield: number | null;
   productionServings: number | null;
-
   status: ProductionStatus;
-
   ingredients: CalculatedIngredient[];
 };
 
 type CombinedIngredient = {
   key: string;
-
   ingredient_id: string | null;
   ingredient_name: string;
-
   recipeQuantity: number;
   rawQuantity: number;
-
   unit: string;
-
   pack_quantity: number | null;
   pack_unit: string | null;
   pack_price: number | null;
-
   packsNeeded: number | null;
   purchaseQuantity: number | null;
   leftover: number | null;
   purchaseCost: number | null;
-
   usedCost: number;
-
   canCalculatePurchase: boolean;
 };
 
-const formatNumber = (value: number) => {
-  if (!Number.isFinite(value)) return "-";
+const formatNumber = (value: number) =>
+  Number.isFinite(value)
+    ? new Intl.NumberFormat("th-TH", {
+        maximumFractionDigits: 3,
+      }).format(value)
+    : "-";
 
-  return new Intl.NumberFormat("th-TH", {
-    maximumFractionDigits: 3,
-  }).format(value);
-};
+const normalizeUnit = (unit: string | null | undefined) => {
+  const value = (unit || "").trim().toLowerCase();
 
-const normalizeUnit = (
-  unit: string | null | undefined
-) => {
-  const value = (unit || "")
-    .trim()
-    .toLowerCase();
-
-  const unitMap: Record<string, string> = {
+  const units: Record<string, string> = {
     g: "g",
     gram: "g",
     grams: "g",
     กรัม: "g",
-
     kg: "kg",
     kilogram: "kg",
     kilograms: "kg",
     กิโลกรัม: "kg",
     กก: "kg",
-
     ml: "ml",
     milliliter: "ml",
     milliliters: "ml",
     มล: "ml",
     มิลลิลิตร: "ml",
-
     l: "l",
     liter: "l",
     liters: "l",
     litre: "l",
     litres: "l",
     ลิตร: "l",
-
     piece: "piece",
     pieces: "piece",
     ชิ้น: "piece",
-
     pack: "pack",
     packs: "pack",
     แพ็ก: "pack",
-
     bottle: "bottle",
     bottles: "bottle",
     ขวด: "bottle",
-
     bag: "bag",
     bags: "bag",
     ถุง: "bag",
-
     box: "box",
     boxes: "box",
     กล่อง: "box",
-
     tsp: "tsp",
     ช้อนชา: "tsp",
-
     tbsp: "tbsp",
     ช้อนโต๊ะ: "tbsp",
-
     cup: "cup",
     ถ้วย: "cup",
   };
 
-  return unitMap[value] || value;
+  return units[value] || value;
 };
 
-const displayUnit = (
-  unit: string | null | undefined
-) => {
+const displayUnit = (unit: string | null | undefined) => {
   const normalized = normalizeUnit(unit);
 
-  const unitMap: Record<string, string> = {
+  const units: Record<string, string> = {
     g: "กรัม",
     kg: "กก.",
     ml: "มล.",
@@ -216,7 +175,7 @@ const displayUnit = (
     cup: "ถ้วย",
   };
 
-  return unitMap[normalized] || unit || "";
+  return units[normalized] || unit || "";
 };
 
 const convertQuantity = (
@@ -228,79 +187,42 @@ const convertQuantity = (
   const to = normalizeUnit(toUnit);
 
   if (!from || !to) return null;
+  if (from === to) return value;
 
-  if (from === to) {
-    return value;
-  }
-
-  const weightUnits: Record<string, number> = {
+  const weights: Record<string, number> = {
     g: 1,
     kg: 1000,
   };
 
-  const volumeUnits: Record<string, number> = {
+  const volumes: Record<string, number> = {
     ml: 1,
     l: 1000,
   };
 
-  if (
-    weightUnits[from] &&
-    weightUnits[to]
-  ) {
-    const base =
-      value * weightUnits[from];
-
-    return base / weightUnits[to];
+  if (weights[from] && weights[to]) {
+    return (value * weights[from]) / weights[to];
   }
 
-  if (
-    volumeUnits[from] &&
-    volumeUnits[to]
-  ) {
-    const base =
-      value * volumeUnits[from];
-
-    return base / volumeUnits[to];
+  if (volumes[from] && volumes[to]) {
+    return (value * volumes[from]) / volumes[to];
   }
 
   return null;
 };
 
-const getBaseUnit = (
-  unit: string
-) => {
-  const normalized =
-    normalizeUnit(unit);
+const getBaseUnit = (unit: string) => {
+  const normalized = normalizeUnit(unit);
 
-  if (
-    normalized === "g" ||
-    normalized === "kg"
-  ) {
-    return "g";
-  }
-
-  if (
-    normalized === "ml" ||
-    normalized === "l"
-  ) {
-    return "ml";
-  }
+  if (normalized === "g" || normalized === "kg") return "g";
+  if (normalized === "ml" || normalized === "l") return "ml";
 
   return normalized;
 };
 
-const getSafeYield = (
-  value: number | null | undefined
-) => {
-  const parsed = Number(
-    value ?? 100
-  );
+const getSafeYield = (value: number | null | undefined) => {
+  const parsed = Number(value ?? 100);
 
-  if (
-    !Number.isFinite(parsed) ||
-    parsed <= 0 ||
-    parsed > 100
-  ) {
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 100) {
     return 100;
   }
 
@@ -308,10 +230,7 @@ const getSafeYield = (
 };
 
 const makePlanId = () => {
-  if (
-    typeof crypto !== "undefined" &&
-    "randomUUID" in crypto
-  ) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
 
@@ -321,593 +240,305 @@ const makePlanId = () => {
 export default function ProductionPage() {
   const router = useRouter();
 
-  const {
-    loading: subscriptionLoading,
-    permissions,
-  } = useSubscription();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [selectedRecipeId, setSelectedRecipeId] = useState("");
+  const [recipeIngredients, setRecipeIngredients] = useState<
+    RecipeIngredient[]
+  >([]);
 
-  const [
-    recipes,
-    setRecipes,
-  ] = useState<Recipe[]>([]);
+  const [mode, setMode] = useState<ProductionMode>("yield");
+  const [targetAmount, setTargetAmount] = useState("");
 
-  const [
-    selectedRecipeId,
-    setSelectedRecipeId,
-  ] = useState("");
+  const [productionPlan, setProductionPlan] = useState<
+    ProductionPlanItem[]
+  >([]);
 
-  const [
-    recipeIngredients,
-    setRecipeIngredients,
-  ] = useState<RecipeIngredient[]>([]);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [
-    mode,
-    setMode,
-  ] =
-    useState<ProductionMode>(
-      "yield"
-    );
-
-  const [
-    targetAmount,
-    setTargetAmount,
-  ] = useState("");
-
-  const [
-    productionPlan,
-    setProductionPlan,
-  ] = useState<ProductionPlanItem[]>([]);
-
-  const [
-    loadingRecipes,
-    setLoadingRecipes,
-  ] = useState(true);
-
-  const [
-    loadingRecipe,
-    setLoadingRecipe,
-  ] = useState(false);
-
-  const [
-    message,
-    setMessage,
-  ] = useState("");
-
-  const [
-    runTitle,
-    setRunTitle,
-  ] = useState("");
-
-  const [
-    productionDate,
-    setProductionDate,
-  ] = useState(
-    new Date()
-      .toISOString()
-      .slice(0, 10)
+  const [runTitle, setRunTitle] = useState("");
+  const [productionDate, setProductionDate] = useState(
+    new Date().toISOString().slice(0, 10)
   );
+  const [runNotes, setRunNotes] = useState("");
+  const [savingRun, setSavingRun] = useState(false);
+  const [runSavedMessage, setRunSavedMessage] = useState("");
 
-  const [
-    runNotes,
-    setRunNotes,
-  ] = useState("");
-
-  const [
-    savingRun,
-    setSavingRun,
-  ] = useState(false);
-
-  const [
-    runSavedMessage,
-    setRunSavedMessage,
-  ] = useState("");
-
+  // FREE EDITION: โหลดสูตรโดยไม่ตรวจแพ็กเกจ
   useEffect(() => {
-    if (subscriptionLoading) {
-      return;
-    }
-
-    if (!permissions.canUseProduction) {
-      setLoadingRecipes(false);
-      return;
-    }
-
-    loadRecipes();
-  }, [
-    subscriptionLoading,
-    permissions.canUseProduction,
-  ]);
-
-  const loadRecipes =
-    async () => {
+    const loadRecipes = async () => {
       setLoadingRecipes(true);
       setMessage("");
 
       const {
         data: { user },
-      } =
-        await supabase.auth.getUser();
+      } = await supabase.auth.getUser();
 
       if (!user) {
         sessionStorage.setItem(
           "chefair_after_login_redirect",
           "/production"
         );
-
         router.push("/login");
         return;
       }
 
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("recipes")
         .select(
           "id, name, category, yield_amount, yield_unit, servings"
         )
-        .eq(
-          "user_id",
-          user.id
-        )
-        .order("name", {
-          ascending: true,
-        });
+        .eq("user_id", user.id)
+        .order("name", { ascending: true });
 
       if (error) {
-        setMessage(
-          "โหลดสูตรไม่สำเร็จ: " +
-            error.message
-        );
-
-        setLoadingRecipes(false);
-        return;
+        setMessage("โหลดสูตรไม่สำเร็จ: " + error.message);
+      } else {
+        setRecipes((data || []) as Recipe[]);
       }
-
-      setRecipes(
-        (data || []) as Recipe[]
-      );
 
       setLoadingRecipes(false);
     };
 
-  const selectedRecipe =
-    useMemo(() => {
-      return (
-        recipes.find(
-          (recipe) =>
-            recipe.id ===
-            selectedRecipeId
-        ) || null
-      );
-    }, [
-      recipes,
-      selectedRecipeId,
-    ]);
+    void loadRecipes();
+  }, [router]);
 
-  const originalAmount =
-    useMemo(() => {
-      if (!selectedRecipe) {
-        return 0;
-      }
+  const selectedRecipe = useMemo(
+    () =>
+      recipes.find((recipe) => recipe.id === selectedRecipeId) ||
+      null,
+    [recipes, selectedRecipeId]
+  );
 
-      if (mode === "yield") {
-        return Number(
-          selectedRecipe.yield_amount ||
-            0
-        );
-      }
+  const originalAmount = useMemo(() => {
+    if (!selectedRecipe) return 0;
 
-      return Number(
-        selectedRecipe.servings ||
-          0
-      );
-    }, [
-      selectedRecipe,
-      mode,
-    ]);
+    return mode === "yield"
+      ? Number(selectedRecipe.yield_amount || 0)
+      : Number(selectedRecipe.servings || 0);
+  }, [selectedRecipe, mode]);
 
-  const factor =
-    useMemo(() => {
-      const target =
-        Number(targetAmount);
+  const factor = useMemo(() => {
+    const target = Number(targetAmount);
 
-      if (
-        originalAmount <= 0 ||
-        target <= 0
-      ) {
-        return 0;
-      }
+    if (originalAmount <= 0 || target <= 0) return 0;
 
-      return (
-        target / originalAmount
-      );
-    }, [
-      targetAmount,
-      originalAmount,
-    ]);
+    return target / originalAmount;
+  }, [targetAmount, originalAmount]);
 
-  const loadRecipeIngredients =
-    async (
-      recipeId: string
-    ) => {
-      setLoadingRecipe(true);
-      setMessage("");
-      setRecipeIngredients([]);
+  const loadRecipeIngredients = async (recipeId: string) => {
+    setLoadingRecipe(true);
+    setMessage("");
+    setRecipeIngredients([]);
 
-      const {
-        data,
-        error,
-      } = await supabase
-        .from(
-          "recipe_ingredients"
+    const { data, error } = await supabase
+      .from("recipe_ingredients")
+      .select(
+        `
+        id,
+        ingredient_id,
+        ingredient_name,
+        quantity,
+        unit,
+        pack_price,
+        pack_quantity,
+        pack_unit,
+        ingredient:ingredients (
+          prep_yield_percent,
+          cooking_yield_percent
         )
-        .select(
-          `
-          id,
-          ingredient_id,
-          ingredient_name,
-          quantity,
-          unit,
-          pack_price,
-          pack_quantity,
-          pack_unit,
-          ingredient:ingredients (
-            prep_yield_percent,
-            cooking_yield_percent
-          )
-          `
-        )
-        .eq(
-          "recipe_id",
-          recipeId
-        )
-        .order(
-          "ingredient_name",
-          {
-            ascending: true,
-          }
-        );
+        `
+      )
+      .eq("recipe_id", recipeId)
+      .order("ingredient_name", { ascending: true });
 
-      if (error) {
-        setMessage(
-          "โหลดวัตถุดิบของสูตรไม่สำเร็จ: " +
-            error.message
-        );
-
-        setLoadingRecipe(false);
-        return;
-      }
-
+    if (error) {
+      setMessage(
+        "โหลดวัตถุดิบของสูตรไม่สำเร็จ: " + error.message
+      );
+    } else {
       setRecipeIngredients(
-        ((data ||
-          []) as unknown) as RecipeIngredient[]
+        (data || []) as unknown as RecipeIngredient[]
       );
+    }
 
-      setLoadingRecipe(false);
-    };
+    setLoadingRecipe(false);
+  };
 
-  const handleRecipeChange =
-    async (
-      recipeId: string
-    ) => {
-      setSelectedRecipeId(
-        recipeId
-      );
+  const handleRecipeChange = async (recipeId: string) => {
+    setSelectedRecipeId(recipeId);
+    setTargetAmount("");
+    setRecipeIngredients([]);
+    setMessage("");
 
-      setTargetAmount("");
-      setRecipeIngredients([]);
-      setMessage("");
+    if (!recipeId) return;
 
-      if (!recipeId) return;
+    const recipe = recipes.find((item) => item.id === recipeId);
 
-      const recipe =
-        recipes.find(
-          (item) =>
-            item.id === recipeId
-        );
-
-      if (recipe) {
-        if (
-          Number(
-            recipe.yield_amount ||
-              0
-          ) > 0
-        ) {
-          setMode("yield");
-        } else if (
-          Number(
-            recipe.servings ||
-              0
-          ) > 0
-        ) {
-          setMode("servings");
-        }
+    if (recipe) {
+      if (Number(recipe.yield_amount || 0) > 0) {
+        setMode("yield");
+      } else if (Number(recipe.servings || 0) > 0) {
+        setMode("servings");
       }
+    }
 
-      await loadRecipeIngredients(
-        recipeId
+    await loadRecipeIngredients(recipeId);
+  };
+
+  const productionIngredients = useMemo<CalculatedIngredient[]>(() => {
+    if (factor <= 0) return [];
+
+    return recipeIngredients.map((item) => {
+      const productionQuantity =
+        Number(item.quantity || 0) * factor;
+
+      const prepYieldPercent = getSafeYield(
+        item.ingredient?.prep_yield_percent
       );
-    };
 
-  const productionIngredients =
-    useMemo<
-      CalculatedIngredient[]
-    >(() => {
-      if (factor <= 0) {
-        return [];
-      }
-
-      return recipeIngredients.map(
-        (item) => {
-          /*
-           * productionQuantity
-           * = ปริมาณพร้อมใช้ที่สูตรต้องการ
-           */
-          const productionQuantity =
-            Number(
-              item.quantity || 0
-            ) * factor;
-
-          const prepYieldPercent =
-            getSafeYield(
-              item.ingredient
-                ?.prep_yield_percent
-            );
-
-          const cookingYieldPercent =
-            getSafeYield(
-              item.ingredient
-                ?.cooking_yield_percent
-            );
-
-          const overallYieldPercent =
-            (prepYieldPercent /
-              100) *
-            (cookingYieldPercent /
-              100) *
-            100;
-
-          /*
-           * สูตรต้องการของพร้อมใช้
-           * → ย้อนกลับก่อน Cooking Loss
-           */
-          const beforeCookingQuantity =
-            productionQuantity /
-            (cookingYieldPercent /
-              100);
-
-          /*
-           * ก่อนปรุง
-           * → ย้อนกลับ Prep Loss
-           * = ปริมาณดิบที่ต้องเตรียม/ซื้อ
-           */
-          const rawPurchaseQuantity =
-            beforeCookingQuantity /
-            (prepYieldPercent /
-              100);
-
-          const packQuantity =
-            Number(
-              item.pack_quantity ||
-                0
-            );
-
-          const packPrice =
-            Number(
-              item.pack_price || 0
-            );
-
-          const packUnit =
-            item.pack_unit ||
-            item.unit;
-
-          /*
-           * ต้นทุนจริงใช้ raw quantity
-           * เพราะของที่สูญเสียก็เป็นต้นทุน
-           */
-          const requiredInPackUnit =
-            convertQuantity(
-              rawPurchaseQuantity,
-              item.unit,
-              packUnit
-            );
-
-          const canCalculatePurchase =
-            packQuantity > 0 &&
-            packPrice > 0 &&
-            requiredInPackUnit !==
-              null;
-
-          const usedCost =
-            canCalculatePurchase
-              ? (packPrice /
-                  packQuantity) *
-                requiredInPackUnit!
-              : 0;
-
-          return {
-            ...item,
-
-            productionQuantity,
-
-            prepYieldPercent,
-            cookingYieldPercent,
-            overallYieldPercent,
-
-            beforeCookingQuantity,
-            rawPurchaseQuantity,
-
-            packUnit,
-            requiredInPackUnit,
-
-            usedCost,
-            canCalculatePurchase,
-          };
-        }
+      const cookingYieldPercent = getSafeYield(
+        item.ingredient?.cooking_yield_percent
       );
-    }, [
-      recipeIngredients,
-      factor,
-    ]);
+
+      const overallYieldPercent =
+        (prepYieldPercent / 100) *
+        (cookingYieldPercent / 100) *
+        100;
+
+      const beforeCookingQuantity =
+        productionQuantity / (cookingYieldPercent / 100);
+
+      const rawPurchaseQuantity =
+        beforeCookingQuantity / (prepYieldPercent / 100);
+
+      const packQuantity = Number(item.pack_quantity || 0);
+      const packPrice = Number(item.pack_price || 0);
+      const packUnit = item.pack_unit || item.unit;
+
+      const requiredInPackUnit = convertQuantity(
+        rawPurchaseQuantity,
+        item.unit,
+        packUnit
+      );
+
+      const canCalculatePurchase =
+        packQuantity > 0 &&
+        packPrice > 0 &&
+        requiredInPackUnit !== null;
+
+      const usedCost = canCalculatePurchase
+        ? (packPrice / packQuantity) * requiredInPackUnit!
+        : 0;
+
+      return {
+        ...item,
+        productionQuantity,
+        prepYieldPercent,
+        cookingYieldPercent,
+        overallYieldPercent,
+        beforeCookingQuantity,
+        rawPurchaseQuantity,
+        packUnit,
+        requiredInPackUnit,
+        usedCost,
+        canCalculatePurchase,
+      };
+    });
+  }, [recipeIngredients, factor]);
 
   const productionYield =
     selectedRecipe &&
     selectedRecipe.yield_amount &&
     factor > 0
-      ? Number(
-          selectedRecipe.yield_amount
-        ) * factor
+      ? Number(selectedRecipe.yield_amount) * factor
       : null;
 
   const productionServings =
     selectedRecipe &&
     selectedRecipe.servings &&
     factor > 0
-      ? Number(
-          selectedRecipe.servings
-        ) * factor
+      ? Number(selectedRecipe.servings) * factor
       : null;
 
-  const currentUsedCost =
-    useMemo(() => {
-      return productionIngredients.reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.usedCost || 0
-          ),
+  const currentUsedCost = useMemo(
+    () =>
+      productionIngredients.reduce(
+        (sum, item) => sum + Number(item.usedCost || 0),
         0
-      );
-    }, [
-      productionIngredients,
-    ]);
+      ),
+    [productionIngredients]
+  );
 
-  const ingredientsWithLoss =
-    useMemo(() => {
-      return productionIngredients.filter(
-        (item) =>
-          item.overallYieldPercent <
-          100
-      ).length;
-    }, [
-      productionIngredients,
-    ]);
+  const ingredientsWithLoss = useMemo(
+    () =>
+      productionIngredients.filter(
+        (item) => item.overallYieldPercent < 100
+      ).length,
+    [productionIngredients]
+  );
 
-  const fullBatches =
-    factor > 0
-      ? Math.floor(factor)
-      : 0;
+  const fullBatches = factor > 0 ? Math.floor(factor) : 0;
 
   const partialBatchPercent =
     factor > 0
-      ? Number(
-          (
-            (factor - fullBatches) *
-            100
-          ).toFixed(1)
-        )
+      ? Number(((factor - fullBatches) * 100).toFixed(1))
       : 0;
 
-  const addToProductionPlan =
-    () => {
-      setMessage("");
+  const addToProductionPlan = () => {
+    setMessage("");
 
-      if (!selectedRecipe) {
-        setMessage(
-          "กรุณาเลือกสูตรก่อน"
-        );
+    if (!selectedRecipe) {
+      setMessage("กรุณาเลือกสูตรก่อน");
+      return;
+    }
 
-        return;
-      }
+    if (factor <= 0) {
+      setMessage("กรุณาระบุจำนวนที่ต้องการผลิต");
+      return;
+    }
 
-      if (factor <= 0) {
-        setMessage(
-          "กรุณาระบุจำนวนที่ต้องการผลิต"
-        );
-
-        return;
-      }
-
-      if (
-        recipeIngredients.length ===
-        0
-      ) {
-        setMessage(
-          "สูตรนี้ยังไม่มีวัตถุดิบสำหรับวางแผนการผลิต"
-        );
-
-        return;
-      }
-
-      const targetUnit =
-        mode === "yield"
-          ? displayUnit(
-              selectedRecipe.yield_unit
-            )
-          : "ชิ้น / เสิร์ฟ";
-
-      const newItem: ProductionPlanItem =
-        {
-          planId:
-            makePlanId(),
-
-          recipeId:
-            selectedRecipe.id,
-
-          recipeName:
-            selectedRecipe.name,
-
-          mode,
-
-          targetAmount:
-            Number(targetAmount),
-
-          targetUnit,
-
-          factor,
-
-          fullBatches,
-          partialBatchPercent,
-
-          productionYield,
-          productionServings,
-
-          status:
-            "planned",
-
-          ingredients:
-            productionIngredients.map(
-              (item) => ({
-                ...item,
-              })
-            ),
-        };
-
-      setProductionPlan(
-        (current) => [
-          ...current,
-          newItem,
-        ]
+    if (recipeIngredients.length === 0) {
+      setMessage(
+        "สูตรนี้ยังไม่มีวัตถุดิบสำหรับวางแผนการผลิต"
       );
+      return;
+    }
 
-      setSelectedRecipeId("");
-      setRecipeIngredients([]);
-      setTargetAmount("");
-      setMessage("");
+    const targetUnit =
+      mode === "yield"
+        ? displayUnit(selectedRecipe.yield_unit)
+        : "ชิ้น / เสิร์ฟ";
+
+    const newItem: ProductionPlanItem = {
+      planId: makePlanId(),
+      recipeId: selectedRecipe.id,
+      recipeName: selectedRecipe.name,
+      mode,
+      targetAmount: Number(targetAmount),
+      targetUnit,
+      factor,
+      fullBatches,
+      partialBatchPercent,
+      productionYield,
+      productionServings,
+      status: "planned",
+      ingredients: productionIngredients.map((item) => ({
+        ...item,
+      })),
     };
 
-  const removePlanItem = (
-    planId: string
-  ) => {
-    setProductionPlan(
-      (current) =>
-        current.filter(
-          (item) =>
-            item.planId !==
-            planId
-        )
+    setProductionPlan((current) => [...current, newItem]);
+    setSelectedRecipeId("");
+    setRecipeIngredients([]);
+    setTargetAmount("");
+    setMessage("");
+  };
+
+  const removePlanItem = (planId: string) => {
+    setProductionPlan((current) =>
+      current.filter((item) => item.planId !== planId)
     );
   };
 
@@ -915,684 +546,326 @@ export default function ProductionPage() {
     planId: string,
     status: ProductionStatus
   ) => {
-    setProductionPlan(
-      (current) =>
-        current.map(
-          (item) =>
-            item.planId ===
-            planId
-              ? {
-                  ...item,
-                  status,
-                }
-              : item
-        )
+    setProductionPlan((current) =>
+      current.map((item) =>
+        item.planId === planId ? { ...item, status } : item
+      )
     );
   };
 
-  const clearProductionPlan =
-    () => {
-      setProductionPlan([]);
-    };
+  const clearProductionPlan = () => {
+    setProductionPlan([]);
+  };
 
-  const combinedIngredients =
-    useMemo<
-      CombinedIngredient[]
-    >(() => {
-      const grouped =
-        new Map<
-          string,
-          {
-            key: string;
+  const combinedIngredients = useMemo<CombinedIngredient[]>(() => {
+    type GroupedIngredient = Pick<
+      CombinedIngredient,
+      | "key"
+      | "ingredient_id"
+      | "ingredient_name"
+      | "recipeQuantity"
+      | "rawQuantity"
+      | "unit"
+      | "pack_quantity"
+      | "pack_unit"
+      | "pack_price"
+    >;
 
-            ingredient_id:
-              | string
-              | null;
+    const grouped = new Map<string, GroupedIngredient>();
 
-            ingredient_name: string;
+    productionPlan.forEach((plan) => {
+      plan.ingredients.forEach((item) => {
+        const baseUnit = getBaseUnit(item.unit);
 
-            recipeQuantity: number;
-            rawQuantity: number;
+        const recipeToBase = convertQuantity(
+          item.productionQuantity,
+          item.unit,
+          baseUnit
+        );
 
-            unit: string;
+        const rawToBase = convertQuantity(
+          item.rawPurchaseQuantity,
+          item.unit,
+          baseUnit
+        );
 
-            pack_quantity:
-              | number
-              | null;
+        const identity = item.ingredient_id
+          ? `id:${item.ingredient_id}`
+          : `name:${item.ingredient_name.trim().toLowerCase()}`;
 
-            pack_unit:
-              | string
-              | null;
+        const canConvert =
+          recipeToBase !== null && rawToBase !== null;
 
-            pack_price:
-              | number
-              | null;
+        const unit = canConvert ? baseUnit : item.unit;
+        const key = `${identity}::${normalizeUnit(unit)}`;
+
+        const recipeQuantity = canConvert
+          ? recipeToBase
+          : item.productionQuantity;
+
+        const rawQuantity = canConvert
+          ? rawToBase
+          : item.rawPurchaseQuantity;
+
+        const existing = grouped.get(key);
+
+        if (existing) {
+          existing.recipeQuantity += recipeQuantity;
+          existing.rawQuantity += rawQuantity;
+
+          if (!existing.pack_quantity && item.pack_quantity) {
+            existing.pack_quantity = item.pack_quantity;
+            existing.pack_unit = item.pack_unit;
+            existing.pack_price = item.pack_price;
           }
-        >();
-
-      productionPlan.forEach(
-        (plan) => {
-          plan.ingredients.forEach(
-            (item) => {
-              const baseUnit =
-                getBaseUnit(
-                  item.unit
-                );
-
-              const recipeToBase =
-                convertQuantity(
-                  item.productionQuantity,
-                  item.unit,
-                  baseUnit
-                );
-
-              const rawToBase =
-                convertQuantity(
-                  item.rawPurchaseQuantity,
-                  item.unit,
-                  baseUnit
-                );
-
-              /*
-               * ถ้าแปลงหน่วยไม่ได้
-               * ใช้หน่วยเดิมแยกกลุ่ม
-               */
-              if (
-                recipeToBase ===
-                  null ||
-                rawToBase === null
-              ) {
-                const identity =
-                  item.ingredient_id
-                    ? `id:${item.ingredient_id}`
-                    : `name:${item.ingredient_name
-                        .trim()
-                        .toLowerCase()}`;
-
-                const key =
-                  `${identity}::${normalizeUnit(
-                    item.unit
-                  )}`;
-
-                const existing =
-                  grouped.get(key);
-
-                if (existing) {
-                  existing.recipeQuantity +=
-                    item.productionQuantity;
-
-                  existing.rawQuantity +=
-                    item.rawPurchaseQuantity;
-                } else {
-                  grouped.set(
-                    key,
-                    {
-                      key,
-
-                      ingredient_id:
-                        item.ingredient_id,
-
-                      ingredient_name:
-                        item.ingredient_name,
-
-                      recipeQuantity:
-                        item.productionQuantity,
-
-                      rawQuantity:
-                        item.rawPurchaseQuantity,
-
-                      unit:
-                        item.unit,
-
-                      pack_quantity:
-                        item.pack_quantity,
-
-                      pack_unit:
-                        item.pack_unit,
-
-                      pack_price:
-                        item.pack_price,
-                    }
-                  );
-                }
-
-                return;
-              }
-
-              /*
-               * ถ้ามี ingredient_id
-               * ให้ใช้ ID รวมวัตถุดิบ
-               * แม่นกว่าการใช้ชื่อ
-               */
-              const identity =
-                item.ingredient_id
-                  ? `id:${item.ingredient_id}`
-                  : `name:${item.ingredient_name
-                      .trim()
-                      .toLowerCase()}`;
-
-              const key =
-                `${identity}::${baseUnit}`;
-
-              const existing =
-                grouped.get(key);
-
-              if (existing) {
-                existing.recipeQuantity +=
-                  recipeToBase;
-
-                existing.rawQuantity +=
-                  rawToBase;
-
-                if (
-                  !existing.pack_quantity &&
-                  item.pack_quantity
-                ) {
-                  existing.pack_quantity =
-                    item.pack_quantity;
-
-                  existing.pack_unit =
-                    item.pack_unit;
-
-                  existing.pack_price =
-                    item.pack_price;
-                }
-              } else {
-                grouped.set(
-                  key,
-                  {
-                    key,
-
-                    ingredient_id:
-                      item.ingredient_id,
-
-                    ingredient_name:
-                      item.ingredient_name,
-
-                    recipeQuantity:
-                      recipeToBase,
-
-                    rawQuantity:
-                      rawToBase,
-
-                    unit: baseUnit,
-
-                    pack_quantity:
-                      item.pack_quantity,
-
-                    pack_unit:
-                      item.pack_unit,
-
-                    pack_price:
-                      item.pack_price,
-                  }
-                );
-              }
-            }
-          );
+        } else {
+          grouped.set(key, {
+            key,
+            ingredient_id: item.ingredient_id,
+            ingredient_name: item.ingredient_name,
+            recipeQuantity,
+            rawQuantity,
+            unit,
+            pack_quantity: item.pack_quantity,
+            pack_unit: item.pack_unit,
+            pack_price: item.pack_price,
+          });
         }
-      );
+      });
+    });
 
-      return Array.from(
-        grouped.values()
-      )
-        .map((item) => {
-          const packQuantity =
-            Number(
-              item.pack_quantity ||
+    return Array.from(grouped.values())
+      .map((item) => {
+        const packQuantity = Number(item.pack_quantity || 0);
+        const packPrice = Number(item.pack_price || 0);
+        const packUnit = item.pack_unit || item.unit;
+
+        const requiredInPackUnit = convertQuantity(
+          item.rawQuantity,
+          item.unit,
+          packUnit
+        );
+
+        const canCalculatePurchase =
+          packQuantity > 0 &&
+          packPrice > 0 &&
+          requiredInPackUnit !== null;
+
+        const packsNeeded = canCalculatePurchase
+          ? Math.ceil(requiredInPackUnit! / packQuantity)
+          : null;
+
+        const purchaseQuantity =
+          packsNeeded !== null
+            ? packsNeeded * packQuantity
+            : null;
+
+        const purchaseCost =
+          packsNeeded !== null ? packsNeeded * packPrice : null;
+
+        const leftover =
+          purchaseQuantity !== null &&
+          requiredInPackUnit !== null
+            ? Math.max(
+                purchaseQuantity - requiredInPackUnit,
                 0
-            );
+              )
+            : null;
 
-          const packPrice =
-            Number(
-              item.pack_price || 0
-            );
+        const usedCost = canCalculatePurchase
+          ? (packPrice / packQuantity) * requiredInPackUnit!
+          : 0;
 
-          const packUnit =
-            item.pack_unit ||
-            item.unit;
-
-          /*
-           * Shopping List ใช้ RAW
-           * ไม่ใช้ recipeQuantity
-           */
-          const requiredInPackUnit =
-            convertQuantity(
-              item.rawQuantity,
-              item.unit,
-              packUnit
-            );
-
-          const canCalculatePurchase =
-            packQuantity > 0 &&
-            packPrice > 0 &&
-            requiredInPackUnit !==
-              null;
-
-          const packsNeeded =
-            canCalculatePurchase
-              ? Math.ceil(
-                  requiredInPackUnit! /
-                    packQuantity
-                )
-              : null;
-
-          const purchaseQuantity =
-            packsNeeded !== null
-              ? packsNeeded *
-                packQuantity
-              : null;
-
-          const purchaseCost =
-            packsNeeded !== null
-              ? packsNeeded *
-                packPrice
-              : null;
-
-          const leftover =
-            purchaseQuantity !==
-              null &&
-            requiredInPackUnit !==
-              null
-              ? Math.max(
-                  purchaseQuantity -
-                    requiredInPackUnit,
-                  0
-                )
-              : null;
-
-          const usedCost =
-            canCalculatePurchase
-              ? (packPrice /
-                  packQuantity) *
-                requiredInPackUnit!
-              : 0;
-
-          return {
-            ...item,
-
-            pack_unit:
-              packUnit,
-
-            packsNeeded,
-            purchaseQuantity,
-            leftover,
-            purchaseCost,
-            usedCost,
-
-            canCalculatePurchase,
-          };
-        })
-        .sort((a, b) =>
-          a.ingredient_name.localeCompare(
-            b.ingredient_name,
-            "th"
-          )
-        );
-    }, [productionPlan]);
-
-  const planUsedCost =
-    useMemo(() => {
-      return combinedIngredients.reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.usedCost || 0
-          ),
-        0
+        return {
+          ...item,
+          pack_unit: packUnit,
+          packsNeeded,
+          purchaseQuantity,
+          leftover,
+          purchaseCost,
+          usedCost,
+          canCalculatePurchase,
+        };
+      })
+      .sort((a, b) =>
+        a.ingredient_name.localeCompare(b.ingredient_name, "th")
       );
-    }, [
-      combinedIngredients,
-    ]);
+  }, [productionPlan]);
 
-  const planPurchaseCost =
-    useMemo(() => {
-      return combinedIngredients.reduce(
-        (sum, item) =>
-          sum +
-          Number(
-            item.purchaseCost || 0
-          ),
+  const planUsedCost = useMemo(
+    () =>
+      combinedIngredients.reduce(
+        (sum, item) => sum + Number(item.usedCost || 0),
         0
+      ),
+    [combinedIngredients]
+  );
+
+  const planPurchaseCost = useMemo(
+    () =>
+      combinedIngredients.reduce(
+        (sum, item) => sum + Number(item.purchaseCost || 0),
+        0
+      ),
+    [combinedIngredients]
+  );
+
+  const handleSaveProductionRun = async () => {
+    setMessage("");
+    setRunSavedMessage("");
+
+    if (productionPlan.length === 0) {
+      setMessage(
+        "กรุณาเพิ่มสูตรเข้าแผนการผลิตอย่างน้อย 1 รายการ"
       );
-    }, [
-      combinedIngredients,
-    ]);
+      return;
+    }
 
-  const handleSaveProductionRun =
-    async () => {
-      setMessage("");
-      setRunSavedMessage("");
+    if (!productionDate) {
+      setMessage("กรุณาเลือกวันที่ผลิต");
+      return;
+    }
 
-      if (
-        productionPlan.length ===
-        0
-      ) {
-        setMessage(
-          "กรุณาเพิ่มสูตรเข้าแผนการผลิตอย่างน้อย 1 รายการ"
-        );
+    setSavingRun(true);
 
-        return;
-      }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (
-        !productionDate
-      ) {
-        setMessage(
-          "กรุณาเลือกวันที่ผลิต"
-        );
+    if (!user) {
+      setSavingRun(false);
+      sessionStorage.setItem(
+        "chefair_after_login_redirect",
+        "/production"
+      );
+      router.push("/login");
+      return;
+    }
 
-        return;
-      }
+    const finalTitle =
+      runTitle.trim() ||
+      `แผนผลิต ${new Intl.DateTimeFormat("th-TH", {
+        dateStyle: "medium",
+      }).format(new Date(`${productionDate}T00:00:00`))}`;
 
-      setSavingRun(true);
+    const allDone = productionPlan.every(
+      (item) => item.status === "done"
+    );
 
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getUser();
+    const anyInProgress = productionPlan.some(
+      (item) => item.status === "in_progress"
+    );
 
-      if (!user) {
-        setSavingRun(false);
+    const runStatus = allDone
+      ? "done"
+      : anyInProgress
+      ? "in_progress"
+      : "planned";
 
-        sessionStorage.setItem(
-          "chefair_after_login_redirect",
-          "/production"
-        );
+    const { data: runData, error: runError } = await supabase
+      .from("production_runs")
+      .insert({
+        user_id: user.id,
+        title: finalTitle,
+        production_date: productionDate,
+        status: runStatus,
+        total_used_cost: Number(planUsedCost.toFixed(2)),
+        total_purchase_cost: Number(
+          planPurchaseCost.toFixed(2)
+        ),
+        shopping_list: combinedIngredients,
+        notes: runNotes.trim() || null,
+      })
+      .select("id")
+      .single();
 
-        router.push("/login");
-        return;
-      }
+    if (runError || !runData) {
+      setMessage(
+        "บันทึกแผนการผลิตไม่สำเร็จ: " +
+          (runError?.message ||
+            "ไม่สามารถสร้าง Production Run ได้")
+      );
+      setSavingRun(false);
+      return;
+    }
 
-      const finalTitle =
-        runTitle.trim() ||
-        `แผนผลิต ${new Intl.DateTimeFormat(
-          "th-TH",
-          {
-            dateStyle:
-              "medium",
-          }
-        ).format(
-          new Date(
-            `${productionDate}T00:00:00`
-          )
-        )}`;
+    const itemPayload = productionPlan.map((item) => ({
+      run_id: runData.id,
+      user_id: user.id,
+      recipe_id: item.recipeId || null,
+      recipe_name: item.recipeName,
+      mode: item.mode,
+      target_amount: item.targetAmount,
+      target_unit: item.targetUnit,
+      factor: item.factor,
+      full_batches: item.fullBatches,
+      partial_batch_percent: item.partialBatchPercent,
+      production_yield: item.productionYield,
+      production_servings: item.productionServings,
+      status: item.status,
+      ingredients: item.ingredients,
+    }));
 
-      const allDone =
-        productionPlan.every(
-          (item) =>
-            item.status ===
-            "done"
-        );
+    const { error: itemInsertError } = await supabase
+      .from("production_run_items")
+      .insert(itemPayload);
 
-      const anyInProgress =
-        productionPlan.some(
-          (item) =>
-            item.status ===
-            "in_progress"
-        );
+    if (itemInsertError) {
+      await supabase
+        .from("production_runs")
+        .delete()
+        .eq("id", runData.id)
+        .eq("user_id", user.id);
 
-      const runStatus =
-        allDone
-          ? "done"
-          : anyInProgress
-          ? "in_progress"
-          : "planned";
-
-      const {
-        data: runData,
-        error: runError,
-      } =
-        await supabase
-          .from(
-            "production_runs"
-          )
-          .insert({
-            user_id:
-              user.id,
-
-            title:
-              finalTitle,
-
-            production_date:
-              productionDate,
-
-            status:
-              runStatus,
-
-            total_used_cost:
-              Number(
-                planUsedCost.toFixed(
-                  2
-                )
-              ),
-
-            total_purchase_cost:
-              Number(
-                planPurchaseCost.toFixed(
-                  2
-                )
-              ),
-
-            shopping_list:
-              combinedIngredients,
-
-            notes:
-              runNotes.trim() ||
-              null,
-          })
-          .select("id")
-          .single();
-
-      if (
-        runError ||
-        !runData
-      ) {
-        setMessage(
-          "บันทึกแผนการผลิตไม่สำเร็จ: " +
-            (
-              runError?.message ||
-              "ไม่สามารถสร้าง Production Run ได้"
-            )
-        );
-
-        setSavingRun(false);
-        return;
-      }
-
-      const itemPayload =
-        productionPlan.map(
-          (item) => ({
-            run_id:
-              runData.id,
-
-            user_id:
-              user.id,
-
-            recipe_id:
-              item.recipeId ||
-              null,
-
-            recipe_name:
-              item.recipeName,
-
-            mode:
-              item.mode,
-
-            target_amount:
-              item.targetAmount,
-
-            target_unit:
-              item.targetUnit,
-
-            factor:
-              item.factor,
-
-            full_batches:
-              item.fullBatches,
-
-            partial_batch_percent:
-              item.partialBatchPercent,
-
-            production_yield:
-              item.productionYield,
-
-            production_servings:
-              item.productionServings,
-
-            status:
-              item.status,
-
-            ingredients:
-              item.ingredients,
-          })
-        );
-
-      const {
-        error:
-          itemInsertError,
-      } =
-        await supabase
-          .from(
-            "production_run_items"
-          )
-          .insert(
-            itemPayload
-          );
-
-      if (
-        itemInsertError
-      ) {
-        await supabase
-          .from(
-            "production_runs"
-          )
-          .delete()
-          .eq(
-            "id",
-            runData.id
-          )
-          .eq(
-            "user_id",
-            user.id
-          );
-
-        setMessage(
-          "บันทึกรายการสูตรในแผนไม่สำเร็จ: " +
-            itemInsertError.message
-        );
-
-        setSavingRun(false);
-        return;
-      }
+      setMessage(
+        "บันทึกรายการสูตรในแผนไม่สำเร็จ: " +
+          itemInsertError.message
+      );
 
       setSavingRun(false);
+      return;
+    }
 
-      setRunSavedMessage(
-        "✓ บันทึกแผนการผลิตลง Production History แล้ว"
+    setSavingRun(false);
+    setRunSavedMessage(
+      "✓ บันทึกแผนการผลิตลง Production History แล้ว"
+    );
+
+    window.setTimeout(() => {
+      setRunSavedMessage("");
+    }, 5000);
+  };
+
+  const handleCreateProductionSheet = () => {
+    setMessage("");
+
+    if (productionPlan.length === 0) {
+      setMessage(
+        "กรุณาเพิ่มสูตรเข้าแผนการผลิตอย่างน้อย 1 รายการ"
       );
+      return;
+    }
 
-      window.setTimeout(() => {
-        setRunSavedMessage(
-          ""
-        );
-      }, 5000);
+    const payload = {
+      createdAt: Date.now(),
+      productionPlan,
+      combinedIngredients,
+      planUsedCost,
+      planPurchaseCost,
     };
 
-  /*
-   * PRODUCTION SHEET
-   *
-   * เก็บ Production Plan ปัจจุบันไว้ใน sessionStorage
-   * แล้วส่งผู้ใช้ไปหน้า /production/sheet
-   *
-   * ตอนนี้ยังไม่บันทึก Production History ลง Supabase
-   */
-  const handleCreateProductionSheet =
-    () => {
-      setMessage("");
-
-      if (
-        productionPlan.length ===
-        0
-      ) {
-        setMessage(
-          "กรุณาเพิ่มสูตรเข้าแผนการผลิตอย่างน้อย 1 รายการ"
-        );
-
-        return;
-      }
-
-      const payload = {
-        createdAt: Date.now(),
-
-        productionPlan,
-
-        combinedIngredients,
-
-        planUsedCost,
-        planPurchaseCost,
-      };
-
-      sessionStorage.setItem(
-        "chefair_production_sheet",
-        JSON.stringify(payload)
-      );
-
-      router.push(
-        "/production/sheet"
-      );
-    };
-
-  if (
-    subscriptionLoading
-  ) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
-          กำลังตรวจสอบแพ็กเกจ...
-        </div>
-      </main>
+    sessionStorage.setItem(
+      "chefair_production_sheet",
+      JSON.stringify(payload)
     );
-  }
 
-  if (
-    !permissions.canUseProduction
-  ) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 text-center">
-          <Factory className="w-12 h-12 text-amber-400 mx-auto" />
-
-          <h1 className="text-2xl font-extrabold text-slate-800 mt-4">
-            Production Center
-          </h1>
-
-          <p className="text-sm text-slate-500 mt-2">
-            ฟังก์ชันวางแผนการผลิตและ Shopping List ใช้ได้ในแพ็กเกจ Pro หรือ Business
-          </p>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/pricing"
-              )
-            }
-            className="mt-6 bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-3 rounded-xl text-sm"
-          >
-            ดูแพ็กเกจ Pro
-          </button>
-        </div>
-      </main>
-    );
-  }
+    router.push("/production/sheet");
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
       <main className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
-
         {/* HEADER */}
-
         <div className="text-center max-w-2xl mx-auto mb-9">
           <div className="flex justify-center mb-4">
             <div className="bg-amber-50 text-amber-600 p-3 rounded-2xl">
@@ -1605,21 +878,15 @@ export default function ProductionPage() {
           </h1>
 
           <p className="text-sm text-slate-500 mt-3 leading-relaxed">
-            วางแผนการผลิตหลายสูตร
-            คำนวณ Yield / Loss
+            วางแผนการผลิตหลายสูตร คำนวณ Yield / Loss
             ปริมาณวัตถุดิบดิบที่ต้องเตรียม
-            และรวม Shopping List
-            อัตโนมัติ
+            และรวม Shopping List อัตโนมัติ
           </p>
 
           <div className="mt-4">
             <button
               type="button"
-              onClick={() =>
-                router.push(
-                  "/production/history"
-                )
-              }
+              onClick={() => router.push("/production/history")}
               className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-sm shadow-sm transition"
             >
               <History className="w-4 h-4" />
@@ -1628,10 +895,8 @@ export default function ProductionPage() {
           </div>
         </div>
 
-        {/* CURRENT PLAN */}
-
-        {productionPlan.length >
-          0 && (
+        {/* CURRENT PRODUCTION PLAN */}
+        {productionPlan.length > 0 && (
           <section className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm mb-6">
             <div className="px-5 sm:px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1643,24 +908,16 @@ export default function ProductionPage() {
                   <h2 className="font-extrabold text-slate-800">
                     แผนการผลิตวันนี้
                   </h2>
-
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {
-                      productionPlan.length
-                    }{" "}
-                    รายการ
+                    {productionPlan.length} รายการ
                   </p>
                 </div>
               </div>
 
-              {/* PRODUCTION SHEET ACTIONS */}
-
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  onClick={
-                    handleCreateProductionSheet
-                  }
+                  onClick={handleCreateProductionSheet}
                   className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition"
                 >
                   <FileText className="w-4 h-4" />
@@ -1669,9 +926,7 @@ export default function ProductionPage() {
 
                 <button
                   type="button"
-                  onClick={
-                    clearProductionPlan
-                  }
+                  onClick={clearProductionPlan}
                   className="text-xs font-bold text-red-500 hover:bg-red-50 px-4 py-2.5 rounded-xl transition"
                 >
                   ล้างแผนทั้งหมด
@@ -1680,134 +935,109 @@ export default function ProductionPage() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {productionPlan.map(
-                (item) => (
-                  <div
-                    key={
-                      item.planId
-                    }
-                    className="p-5 sm:px-6"
-                  >
-                    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-bold text-slate-800">
-                            {
-                              item.recipeName
-                            }
-                          </p>
+              {productionPlan.map((item) => (
+                <div
+                  key={item.planId}
+                  className="p-5 sm:px-6"
+                >
+                  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-slate-800">
+                          {item.recipeName}
+                        </p>
 
-                          <ProductionStatusBadge
-                            status={
-                              item.status
-                            }
-                          />
-                        </div>
-
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
-                          <span>
-                            เป้าหมาย{" "}
-                            {formatNumber(
-                              item.targetAmount
-                            )}{" "}
-                            {
-                              item.targetUnit
-                            }
-                          </span>
-
-                          <span>
-                            {formatNumber(
-                              item.factor
-                            )}{" "}
-                            สูตร
-                          </span>
-
-                          <span>
-                            {item.fullBatches} Batch เต็ม
-                            {item.partialBatchPercent >
-                            0
-                              ? ` + ${formatNumber(
-                                  item.partialBatchPercent
-                                )}% Batch`
-                              : ""}
-                          </span>
-                        </div>
+                        <ProductionStatusBadge
+                          status={item.status}
+                        />
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <select
-                          value={
-                            item.status
-                          }
-                          onChange={(e) =>
-                            updatePlanStatus(
-                              item.planId,
-                              e.target
-                                .value as ProductionStatus
-                            )
-                          }
-                          className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700"
-                        >
-                          <option value="planned">
-                            รอผลิต
-                          </option>
-                          <option value="in_progress">
-                            กำลังผลิต
-                          </option>
-                          <option value="done">
-                            เสร็จแล้ว
-                          </option>
-                        </select>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
+                        <span>
+                          เป้าหมาย{" "}
+                          {formatNumber(item.targetAmount)}{" "}
+                          {item.targetUnit}
+                        </span>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(
-                              `/recipes/${item.recipeId}/sop`
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl"
-                        >
-                          <BookOpenCheck className="w-4 h-4" />
-                          SOP
-                        </button>
+                        <span>
+                          {formatNumber(item.factor)} สูตร
+                        </span>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(
-                              `/recipes/${item.recipeId}/sop/view`
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 px-3 py-2 rounded-xl"
-                        >
-                          <PlayCircle className="w-4 h-4" />
-                          Kitchen Mode
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removePlanItem(
-                              item.planId
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-xl"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          ลบ
-                        </button>
+                        <span>
+                          {item.fullBatches} Batch เต็ม
+                          {item.partialBatchPercent > 0
+                            ? ` + ${formatNumber(
+                                item.partialBatchPercent
+                              )}% Batch`
+                            : ""}
+                        </span>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <select
+                        value={item.status}
+                        onChange={(e) =>
+                          updatePlanStatus(
+                            item.planId,
+                            e.target.value as ProductionStatus
+                          )
+                        }
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700"
+                      >
+                        <option value="planned">รอผลิต</option>
+                        <option value="in_progress">
+                          กำลังผลิต
+                        </option>
+                        <option value="done">เสร็จแล้ว</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            `/recipes/${item.recipeId}/sop`
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl"
+                      >
+                        <BookOpenCheck className="w-4 h-4" />
+                        SOP
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            `/recipes/${item.recipeId}/sop/view`
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 px-3 py-2 rounded-xl"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                        Kitchen Mode
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removePlanItem(item.planId)
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-xl"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        ลบ
+                      </button>
+                    </div>
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           </section>
         )}
 
-        {productionPlan.length >
-          0 && (
+        {/* SAVE PRODUCTION RUN */}
+        {productionPlan.length > 0 && (
           <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm mb-6">
             <div className="flex items-center gap-3 mb-5">
               <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl">
@@ -1818,9 +1048,9 @@ export default function ProductionPage() {
                 <h2 className="font-extrabold text-slate-800">
                   บันทึกแผนการผลิต
                 </h2>
-
                 <p className="text-xs text-slate-400 mt-0.5">
-                  เก็บแผนนี้ไว้ใน Production History เพื่อเปิดดูย้อนหลัง
+                  เก็บแผนนี้ไว้ใน Production History
+                  เพื่อเปิดดูย้อนหลัง
                 </p>
               </div>
             </div>
@@ -1830,17 +1060,10 @@ export default function ProductionPage() {
                 <label className="block text-xs font-bold text-slate-600 mb-2">
                   ชื่องานผลิต
                 </label>
-
                 <input
                   type="text"
-                  value={
-                    runTitle
-                  }
-                  onChange={(e) =>
-                    setRunTitle(
-                      e.target.value
-                    )
-                  }
+                  value={runTitle}
+                  onChange={(e) => setRunTitle(e.target.value)}
                   placeholder="เช่น เตรียมขายงานวันเสาร์"
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500"
                 />
@@ -1850,16 +1073,11 @@ export default function ProductionPage() {
                 <label className="block text-xs font-bold text-slate-600 mb-2">
                   วันที่ผลิต
                 </label>
-
                 <input
                   type="date"
-                  value={
-                    productionDate
-                  }
+                  value={productionDate}
                   onChange={(e) =>
-                    setProductionDate(
-                      e.target.value
-                    )
+                    setProductionDate(e.target.value)
                   }
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500"
                 />
@@ -1869,17 +1087,10 @@ export default function ProductionPage() {
                 <label className="block text-xs font-bold text-slate-600 mb-2">
                   หมายเหตุ
                 </label>
-
                 <input
                   type="text"
-                  value={
-                    runNotes
-                  }
-                  onChange={(e) =>
-                    setRunNotes(
-                      e.target.value
-                    )
-                  }
+                  value={runNotes}
+                  onChange={(e) => setRunNotes(e.target.value)}
                   placeholder="ไม่บังคับ"
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500"
                 />
@@ -1889,16 +1100,11 @@ export default function ProductionPage() {
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={
-                  handleSaveProductionRun
-                }
-                disabled={
-                  savingRun
-                }
+                onClick={handleSaveProductionRun}
+                disabled={savingRun}
                 className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold px-5 py-3 rounded-xl text-sm transition"
               >
                 <Save className="w-4 h-4" />
-
                 {savingRun
                   ? "กำลังบันทึก..."
                   : "บันทึก Production Run"}
@@ -1913,8 +1119,7 @@ export default function ProductionPage() {
           </section>
         )}
 
-        {/* STEP 1 */}
-
+        {/* STEP 1: SELECT RECIPE */}
         <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm mb-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="bg-amber-50 text-amber-600 p-2.5 rounded-xl">
@@ -1925,7 +1130,6 @@ export default function ProductionPage() {
               <h2 className="font-extrabold text-slate-800">
                 1. เลือกสูตรที่จะผลิต
               </h2>
-
               <p className="text-xs text-slate-400 mt-0.5">
                 ดึงข้อมูลจากสูตรของฉัน
               </p>
@@ -1936,54 +1140,36 @@ export default function ProductionPage() {
             <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-500">
               กำลังโหลดสูตร...
             </div>
-          ) : recipes.length ===
-            0 ? (
+          ) : recipes.length === 0 ? (
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
-              ยังไม่มีสูตรที่บันทึก
-              กรุณาสร้างสูตรก่อนใช้งาน
+              ยังไม่มีสูตรที่บันทึก กรุณาสร้างสูตรก่อนใช้งาน
               Production Center
             </div>
           ) : (
             <select
-              value={
-                selectedRecipeId
-              }
+              value={selectedRecipeId}
               onChange={(e) =>
-                handleRecipeChange(
-                  e.target.value
-                )
+                handleRecipeChange(e.target.value)
               }
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:border-amber-500"
             >
-              <option value="">
-                — เลือกสูตร —
-              </option>
+              <option value="">— เลือกสูตร —</option>
 
-              {recipes.map(
-                (recipe) => (
-                  <option
-                    key={
-                      recipe.id
-                    }
-                    value={
-                      recipe.id
-                    }
-                  >
-                    {recipe.name}
-                    {recipe.category
-                      ? ` — ${recipe.category}`
-                      : ""}
-                  </option>
-                )
-              )}
+              {recipes.map((recipe) => (
+                <option key={recipe.id} value={recipe.id}>
+                  {recipe.name}
+                  {recipe.category
+                    ? ` — ${recipe.category}`
+                    : ""}
+                </option>
+              ))}
             </select>
           )}
         </section>
 
         {selectedRecipe && (
           <>
-            {/* STEP 2 */}
-
+            {/* STEP 2: ORIGINAL RECIPE */}
             <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm mb-6">
               <div className="flex items-center gap-3 mb-5">
                 <div className="bg-slate-100 text-slate-600 p-2.5 rounded-xl">
@@ -1992,14 +1178,10 @@ export default function ProductionPage() {
 
                 <div>
                   <h2 className="font-extrabold text-slate-800">
-                    2.
-                    ข้อมูลสูตรต้นฉบับ
+                    2. ข้อมูลสูตรต้นฉบับ
                   </h2>
-
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {
-                      selectedRecipe.name
-                    }
+                    {selectedRecipe.name}
                   </p>
                 </div>
               </div>
@@ -2007,16 +1189,12 @@ export default function ProductionPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400">
-                    Yield ต่อ 1
-                    สูตร
+                    Yield ต่อ 1 สูตร
                   </p>
-
                   <p className="text-xl font-extrabold text-slate-800 mt-1">
                     {selectedRecipe.yield_amount
                       ? `${formatNumber(
-                          Number(
-                            selectedRecipe.yield_amount
-                          )
+                          Number(selectedRecipe.yield_amount)
                         )} ${displayUnit(
                           selectedRecipe.yield_unit
                         )}`
@@ -2026,16 +1204,12 @@ export default function ProductionPage() {
 
                 <div className="bg-slate-50 rounded-2xl p-4">
                   <p className="text-xs text-slate-400">
-                    จำนวนเสิร์ฟ /
-                    ชิ้น ต่อ 1 สูตร
+                    จำนวนเสิร์ฟ / ชิ้น ต่อ 1 สูตร
                   </p>
-
                   <p className="text-xl font-extrabold text-slate-800 mt-1">
                     {selectedRecipe.servings
                       ? formatNumber(
-                          Number(
-                            selectedRecipe.servings
-                          )
+                          Number(selectedRecipe.servings)
                         )
                       : "-"}
                   </p>
@@ -2043,8 +1217,7 @@ export default function ProductionPage() {
               </div>
             </section>
 
-            {/* STEP 3 */}
-
+            {/* STEP 3: TARGET */}
             <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm mb-6">
               <div className="flex items-center gap-3 mb-5">
                 <div className="bg-amber-50 text-amber-600 p-2.5 rounded-xl">
@@ -2053,14 +1226,10 @@ export default function ProductionPage() {
 
                 <div>
                   <h2 className="font-extrabold text-slate-800">
-                    3.
-                    ต้องการผลิตเท่าไร?
+                    3. ต้องการผลิตเท่าไร?
                   </h2>
-
                   <p className="text-xs text-slate-400 mt-0.5">
-                    เลือกคำนวณตาม
-                    Yield
-                    หรือจำนวนชิ้น/เสิร์ฟ
+                    เลือกคำนวณตาม Yield หรือจำนวนชิ้น/เสิร์ฟ
                   </p>
                 </div>
               </div>
@@ -2069,22 +1238,14 @@ export default function ProductionPage() {
                 <button
                   type="button"
                   disabled={
-                    Number(
-                      selectedRecipe.yield_amount ||
-                        0
-                    ) <= 0
+                    Number(selectedRecipe.yield_amount || 0) <= 0
                   }
                   onClick={() => {
-                    setMode(
-                      "yield"
-                    );
-                    setTargetAmount(
-                      ""
-                    );
+                    setMode("yield");
+                    setTargetAmount("");
                   }}
                   className={`p-4 rounded-2xl border text-left transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                    mode ===
-                    "yield"
+                    mode === "yield"
                       ? "border-amber-400 bg-amber-50"
                       : "border-slate-200 hover:border-amber-200"
                   }`}
@@ -2092,52 +1253,38 @@ export default function ProductionPage() {
                   <p className="font-bold text-slate-800">
                     ตาม Yield
                   </p>
-
                   <p className="text-xs text-slate-500 mt-1">
-                    เช่น 1,000 กรัม
-                    → 5,000 กรัม
+                    เช่น 1,000 กรัม → 5,000 กรัม
                   </p>
                 </button>
 
                 <button
                   type="button"
                   disabled={
-                    Number(
-                      selectedRecipe.servings ||
-                        0
-                    ) <= 0
+                    Number(selectedRecipe.servings || 0) <= 0
                   }
                   onClick={() => {
-                    setMode(
-                      "servings"
-                    );
-                    setTargetAmount(
-                      ""
-                    );
+                    setMode("servings");
+                    setTargetAmount("");
                   }}
                   className={`p-4 rounded-2xl border text-left transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                    mode ===
-                    "servings"
+                    mode === "servings"
                       ? "border-amber-400 bg-amber-50"
                       : "border-slate-200 hover:border-amber-200"
                   }`}
                 >
                   <p className="font-bold text-slate-800">
-                    ตามจำนวนเสิร์ฟ /
-                    ชิ้น
+                    ตามจำนวนเสิร์ฟ / ชิ้น
                   </p>
-
                   <p className="text-xs text-slate-500 mt-1">
-                    เช่น 20 ชิ้น →
-                    150 ชิ้น
+                    เช่น 20 ชิ้น → 150 ชิ้น
                   </p>
                 </button>
               </div>
 
               <div className="max-w-md">
                 <label className="block text-xs font-bold text-slate-600 mb-2">
-                  {mode ===
-                  "yield"
+                  {mode === "yield"
                     ? `Yield ที่ต้องการ (${displayUnit(
                         selectedRecipe.yield_unit
                       )})`
@@ -2148,19 +1295,12 @@ export default function ProductionPage() {
                   type="number"
                   min="0"
                   step="0.001"
-                  value={
-                    targetAmount
-                  }
+                  value={targetAmount}
                   onChange={(e) =>
-                    setTargetAmount(
-                      e.target.value
-                    )
+                    setTargetAmount(e.target.value)
                   }
                   placeholder={
-                    mode ===
-                    "yield"
-                      ? "เช่น 5000"
-                      : "เช่น 150"
+                    mode === "yield" ? "เช่น 5000" : "เช่น 150"
                   }
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500"
                 />
@@ -2168,7 +1308,6 @@ export default function ProductionPage() {
             </section>
 
             {/* CURRENT CALCULATION */}
-
             {factor > 0 && (
               <section className="space-y-6 mb-6">
                 <div className="bg-slate-800 rounded-3xl p-6 sm:p-7 text-white">
@@ -2181,11 +1320,8 @@ export default function ProductionPage() {
                       <h2 className="font-extrabold">
                         แผนการผลิต
                       </h2>
-
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {
-                          selectedRecipe.name
-                        }
+                        {selectedRecipe.name}
                       </p>
                     </div>
                   </div>
@@ -2195,18 +1331,12 @@ export default function ProductionPage() {
                       <p className="text-xs text-slate-400">
                         ต้องทำ
                       </p>
-
                       <p className="text-xl font-extrabold text-amber-400 mt-1">
-                        {formatNumber(
-                          factor
-                        )}{" "}
-                        สูตร
+                        {formatNumber(factor)} สูตร
                       </p>
-
                       <p className="text-[11px] text-slate-400 mt-1">
                         {fullBatches} Batch เต็ม
-                        {partialBatchPercent >
-                        0
+                        {partialBatchPercent > 0
                           ? ` + ${formatNumber(
                               partialBatchPercent
                             )}% Batch`
@@ -2218,10 +1348,8 @@ export default function ProductionPage() {
                       <p className="text-xs text-slate-400">
                         Yield รวม
                       </p>
-
                       <p className="font-bold mt-1">
-                        {productionYield !==
-                        null
+                        {productionYield !== null
                           ? `${formatNumber(
                               productionYield
                             )} ${displayUnit(
@@ -2235,10 +1363,8 @@ export default function ProductionPage() {
                       <p className="text-xs text-slate-400">
                         จำนวนผลิต
                       </p>
-
                       <p className="font-bold mt-1">
-                        {productionServings !==
-                        null
+                        {productionServings !== null
                           ? `${formatNumber(
                               productionServings
                             )} ชิ้น / เสิร์ฟ`
@@ -2248,15 +1374,10 @@ export default function ProductionPage() {
 
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                       <p className="text-xs text-slate-400">
-                        วัตถุดิบมี
-                        Loss
+                        วัตถุดิบมี Loss
                       </p>
-
                       <p className="font-bold mt-1">
-                        {
-                          ingredientsWithLoss
-                        }{" "}
-                        รายการ
+                        {ingredientsWithLoss} รายการ
                       </p>
                     </div>
 
@@ -2264,21 +1385,15 @@ export default function ProductionPage() {
                       <p className="text-xs text-slate-400">
                         ต้นทุนวัตถุดิบจริง
                       </p>
-
                       <p className="font-bold mt-1">
-                        {currentUsedCost.toFixed(
-                          2
-                        )}{" "}
-                        บาท
+                        {currentUsedCost.toFixed(2)} บาท
                       </p>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={
-                      addToProductionPlan
-                    }
+                    onClick={addToProductionPlan}
                     className="mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-xl font-bold text-sm transition"
                   >
                     <Plus className="w-4 h-4" />
@@ -2286,22 +1401,17 @@ export default function ProductionPage() {
                   </button>
                 </div>
 
-                {/* INGREDIENT LOSS TABLE */}
-
+                {/* YIELD LOSS TABLE */}
                 <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                   <div className="px-6 py-5 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                       <Percent className="w-5 h-5 text-emerald-600" />
-
                       <h3 className="font-bold text-slate-800">
-                        วัตถุดิบและ
-                        Yield Loss
+                        วัตถุดิบและ Yield Loss
                       </h3>
                     </div>
-
                     <p className="text-xs text-slate-400 mt-1">
-                      ปริมาณในสูตร =
-                      ปริมาณพร้อมใช้
+                      ปริมาณในสูตร = ปริมาณพร้อมใช้
                       ระบบคำนวณย้อนกลับว่าต้องเตรียมวัตถุดิบดิบเท่าไร
                     </p>
                   </div>
@@ -2318,28 +1428,21 @@ export default function ProductionPage() {
                             <th className="text-left px-5 py-3">
                               วัตถุดิบ
                             </th>
-
                             <th className="text-right px-5 py-3">
                               สูตรเดิม
                             </th>
-
                             <th className="text-right px-5 py-3">
                               ต้องใช้จริง
                             </th>
-
                             <th className="text-right px-5 py-3">
                               Prep Yield
                             </th>
-
                             <th className="text-right px-5 py-3">
-                              Cooking
-                              Yield
+                              Cooking Yield
                             </th>
-
                             <th className="text-right px-5 py-3">
                               ก่อนปรุง
                             </th>
-
                             <th className="text-right px-5 py-3">
                               ต้องเตรียมดิบ
                             </th>
@@ -2347,117 +1450,92 @@ export default function ProductionPage() {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                          {productionIngredients.map(
-                            (
-                              item
-                            ) => (
-                              <tr
-                                key={
-                                  item.id
-                                }
-                              >
-                                <td className="px-5 py-4">
-                                  <p className="font-semibold text-slate-700">
-                                    {
-                                      item.ingredient_name
-                                    }
+                          {productionIngredients.map((item) => (
+                            <tr key={item.id}>
+                              <td className="px-5 py-4">
+                                <p className="font-semibold text-slate-700">
+                                  {item.ingredient_name}
+                                </p>
+
+                                {!item.ingredient_id && (
+                                  <p className="text-[11px] text-amber-600 mt-1">
+                                    ไม่ได้เชื่อมกับคลังวัตถุดิบ
+                                    — ใช้ Yield 100%
                                   </p>
+                                )}
+                              </td>
 
-                                  {!item.ingredient_id && (
-                                    <p className="text-[11px] text-amber-600 mt-1">
-                                      ไม่ได้เชื่อมกับคลังวัตถุดิบ
-                                      — ใช้ Yield
-                                      100%
-                                    </p>
-                                  )}
-                                </td>
+                              <td className="px-5 py-4 text-right text-slate-500">
+                                {formatNumber(
+                                  Number(item.quantity)
+                                )}{" "}
+                                {displayUnit(item.unit)}
+                              </td>
 
-                                <td className="px-5 py-4 text-right text-slate-500">
+                              <td className="px-5 py-4 text-right font-bold text-slate-800">
+                                {formatNumber(
+                                  item.productionQuantity
+                                )}{" "}
+                                {displayUnit(item.unit)}
+                              </td>
+
+                              <td className="px-5 py-4 text-right">
+                                <span
+                                  className={
+                                    item.prepYieldPercent < 100
+                                      ? "font-bold text-emerald-600"
+                                      : "text-slate-400"
+                                  }
+                                >
                                   {formatNumber(
-                                    Number(
-                                      item.quantity
-                                    )
-                                  )}{" "}
-                                  {displayUnit(
-                                    item.unit
+                                    item.prepYieldPercent
                                   )}
-                                </td>
+                                  %
+                                </span>
+                              </td>
 
-                                <td className="px-5 py-4 text-right font-bold text-slate-800">
+                              <td className="px-5 py-4 text-right">
+                                <span
+                                  className={
+                                    item.cookingYieldPercent < 100
+                                      ? "font-bold text-emerald-600"
+                                      : "text-slate-400"
+                                  }
+                                >
                                   {formatNumber(
-                                    item.productionQuantity
-                                  )}{" "}
-                                  {displayUnit(
-                                    item.unit
+                                    item.cookingYieldPercent
                                   )}
-                                </td>
+                                  %
+                                </span>
+                              </td>
 
-                                <td className="px-5 py-4 text-right">
-                                  <span
-                                    className={
-                                      item.prepYieldPercent <
-                                      100
-                                        ? "font-bold text-emerald-600"
-                                        : "text-slate-400"
-                                    }
-                                  >
+                              <td className="px-5 py-4 text-right text-slate-600">
+                                {formatNumber(
+                                  item.beforeCookingQuantity
+                                )}{" "}
+                                {displayUnit(item.unit)}
+                              </td>
+
+                              <td className="px-5 py-4 text-right">
+                                <p className="font-extrabold text-amber-600">
+                                  {formatNumber(
+                                    item.rawPurchaseQuantity
+                                  )}{" "}
+                                  {displayUnit(item.unit)}
+                                </p>
+
+                                {item.overallYieldPercent < 100 && (
+                                  <p className="text-[11px] text-slate-400 mt-1">
+                                    Overall Yield{" "}
                                     {formatNumber(
-                                      item.prepYieldPercent
+                                      item.overallYieldPercent
                                     )}
                                     %
-                                  </span>
-                                </td>
-
-                                <td className="px-5 py-4 text-right">
-                                  <span
-                                    className={
-                                      item.cookingYieldPercent <
-                                      100
-                                        ? "font-bold text-emerald-600"
-                                        : "text-slate-400"
-                                    }
-                                  >
-                                    {formatNumber(
-                                      item.cookingYieldPercent
-                                    )}
-                                    %
-                                  </span>
-                                </td>
-
-                                <td className="px-5 py-4 text-right text-slate-600">
-                                  {formatNumber(
-                                    item.beforeCookingQuantity
-                                  )}{" "}
-                                  {displayUnit(
-                                    item.unit
-                                  )}
-                                </td>
-
-                                <td className="px-5 py-4 text-right">
-                                  <p className="font-extrabold text-amber-600">
-                                    {formatNumber(
-                                      item.rawPurchaseQuantity
-                                    )}{" "}
-                                    {displayUnit(
-                                      item.unit
-                                    )}
                                   </p>
-
-                                  {item.overallYieldPercent <
-                                    100 && (
-                                    <p className="text-[11px] text-slate-400 mt-1">
-                                      Overall
-                                      Yield{" "}
-                                      {formatNumber(
-                                        item.overallYieldPercent
-                                      )}
-                                      %
-                                    </p>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          )}
+                                )}
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -2469,73 +1547,54 @@ export default function ProductionPage() {
         )}
 
         {/* PRODUCTION OVERVIEW */}
-
-        {productionPlan.length >
-          0 && (
+        {productionPlan.length > 0 && (
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <ProductionOverviewCard
-              icon={
-                <Clock3 className="w-5 h-5" />
-              }
+              icon={<Clock3 className="w-5 h-5" />}
               label="รอผลิต"
               value={
                 productionPlan.filter(
-                  (item) =>
-                    item.status ===
-                    "planned"
+                  (item) => item.status === "planned"
                 ).length
               }
             />
 
             <ProductionOverviewCard
-              icon={
-                <PlayCircle className="w-5 h-5" />
-              }
+              icon={<PlayCircle className="w-5 h-5" />}
               label="กำลังผลิต"
               value={
                 productionPlan.filter(
-                  (item) =>
-                    item.status ===
-                    "in_progress"
+                  (item) => item.status === "in_progress"
                 ).length
               }
             />
 
             <ProductionOverviewCard
-              icon={
-                <CheckCircle2 className="w-5 h-5" />
-              }
+              icon={<CheckCircle2 className="w-5 h-5" />}
               label="เสร็จแล้ว"
               value={
                 productionPlan.filter(
-                  (item) =>
-                    item.status ===
-                    "done"
+                  (item) => item.status === "done"
                 ).length
               }
             />
           </section>
         )}
 
-        {/* COMBINED SHOPPING LIST */}
-
-        {productionPlan.length >
-          0 && (
+        {/* SHOPPING LIST */}
+        {productionPlan.length > 0 && (
           <section className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
             <div className="px-6 py-5 bg-slate-800 text-white">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-amber-400" />
-
                 <h2 className="font-extrabold">
                   Shopping List รวม
                 </h2>
               </div>
 
               <p className="text-xs text-slate-300 mt-1">
-                รวมวัตถุดิบจากทุกสูตร
-                และชดเชย Prep /
-                Cooking Loss
-                ก่อนคำนวณจำนวนแพ็กที่ต้องซื้อ
+                รวมวัตถุดิบจากทุกสูตร และชดเชย Prep /
+                Cooking Loss ก่อนคำนวณจำนวนแพ็กที่ต้องซื้อ
               </p>
             </div>
 
@@ -2544,17 +1603,11 @@ export default function ProductionPage() {
                 <p className="text-xs text-slate-400">
                   ต้นทุนวัตถุดิบจริงรวม
                 </p>
-
                 <p className="text-xl font-extrabold text-slate-800 mt-1">
-                  {planUsedCost.toFixed(
-                    2
-                  )}{" "}
-                  บาท
+                  {planUsedCost.toFixed(2)} บาท
                 </p>
-
                 <p className="text-[11px] text-slate-400 mt-1">
-                  รวมวัตถุดิบที่สูญเสียจาก
-                  Yield Loss แล้ว
+                  รวมวัตถุดิบที่สูญเสียจาก Yield Loss แล้ว
                 </p>
               </div>
 
@@ -2562,14 +1615,9 @@ export default function ProductionPage() {
                 <p className="text-xs text-amber-600">
                   เงินที่ต้องเตรียมซื้อรวม
                 </p>
-
                 <p className="text-xl font-extrabold text-amber-700 mt-1">
-                  {planPurchaseCost.toFixed(
-                    2
-                  )}{" "}
-                  บาท
+                  {planPurchaseCost.toFixed(2)} บาท
                 </p>
-
                 <p className="text-[11px] text-amber-600 mt-1">
                   คำนวณตามจำนวนแพ็กเต็มที่ต้องซื้อ
                 </p>
@@ -2583,31 +1631,24 @@ export default function ProductionPage() {
                     <th className="text-left px-5 py-3">
                       วัตถุดิบ
                     </th>
-
                     <th className="text-right px-5 py-3">
                       สูตรต้องใช้
                     </th>
-
                     <th className="text-right px-5 py-3">
                       ต้องเตรียมดิบ
                     </th>
-
                     <th className="text-right px-5 py-3">
                       ขนาดแพ็ก
                     </th>
-
                     <th className="text-right px-5 py-3">
                       ต้องซื้อ
                     </th>
-
                     <th className="text-right px-5 py-3">
                       ซื้อรวม
                     </th>
-
                     <th className="text-right px-5 py-3">
                       คงเหลือ
                     </th>
-
                     <th className="text-right px-5 py-3">
                       ค่าใช้จ่าย
                     </th>
@@ -2615,100 +1656,70 @@ export default function ProductionPage() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {combinedIngredients.map(
-                    (item) => (
-                      <tr
-                        key={
-                          item.key
-                        }
-                      >
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-700">
-                            {
-                              item.ingredient_name
-                            }
+                  {combinedIngredients.map((item) => (
+                    <tr key={item.key}>
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-slate-700">
+                          {item.ingredient_name}
+                        </p>
+
+                        {!item.canCalculatePurchase && (
+                          <p className="text-[11px] text-red-500 mt-1 font-normal">
+                            ไม่มีข้อมูลราคา/แพ็ก
+                            หรือไม่สามารถแปลงหน่วยได้
                           </p>
+                        )}
+                      </td>
 
-                          {!item.canCalculatePurchase && (
-                            <p className="text-[11px] text-red-500 mt-1 font-normal">
-                              ไม่มีข้อมูลราคา/แพ็ก
-                              หรือไม่สามารถแปลงหน่วยได้
-                            </p>
-                          )}
-                        </td>
+                      <td className="px-5 py-4 text-right text-slate-500">
+                        {formatNumber(item.recipeQuantity)}{" "}
+                        {displayUnit(item.unit)}
+                      </td>
 
-                        <td className="px-5 py-4 text-right text-slate-500">
-                          {formatNumber(
-                            item.recipeQuantity
-                          )}{" "}
-                          {displayUnit(
-                            item.unit
-                          )}
-                        </td>
+                      <td className="px-5 py-4 text-right font-extrabold text-amber-600">
+                        {formatNumber(item.rawQuantity)}{" "}
+                        {displayUnit(item.unit)}
+                      </td>
 
-                        <td className="px-5 py-4 text-right font-extrabold text-amber-600">
-                          {formatNumber(
-                            item.rawQuantity
-                          )}{" "}
-                          {displayUnit(
-                            item.unit
-                          )}
-                        </td>
+                      <td className="px-5 py-4 text-right text-slate-500">
+                        {item.pack_quantity
+                          ? `${formatNumber(
+                              Number(item.pack_quantity)
+                            )} ${displayUnit(item.pack_unit)}`
+                          : "-"}
+                      </td>
 
-                        <td className="px-5 py-4 text-right text-slate-500">
-                          {item.pack_quantity
-                            ? `${formatNumber(
-                                Number(
-                                  item.pack_quantity
-                                )
-                              )} ${displayUnit(
-                                item.pack_unit
-                              )}`
-                            : "-"}
-                        </td>
+                      <td className="px-5 py-4 text-right font-bold">
+                        {item.packsNeeded !== null
+                          ? `${formatNumber(
+                              item.packsNeeded
+                            )} แพ็ก`
+                          : "-"}
+                      </td>
 
-                        <td className="px-5 py-4 text-right font-bold">
-                          {item.packsNeeded !==
-                          null
-                            ? `${formatNumber(
-                                item.packsNeeded
-                              )} แพ็ก`
-                            : "-"}
-                        </td>
+                      <td className="px-5 py-4 text-right">
+                        {item.purchaseQuantity !== null
+                          ? `${formatNumber(
+                              item.purchaseQuantity
+                            )} ${displayUnit(item.pack_unit)}`
+                          : "-"}
+                      </td>
 
-                        <td className="px-5 py-4 text-right">
-                          {item.purchaseQuantity !==
-                          null
-                            ? `${formatNumber(
-                                item.purchaseQuantity
-                              )} ${displayUnit(
-                                item.pack_unit
-                              )}`
-                            : "-"}
-                        </td>
+                      <td className="px-5 py-4 text-right">
+                        {item.leftover !== null
+                          ? `${formatNumber(
+                              item.leftover
+                            )} ${displayUnit(item.pack_unit)}`
+                          : "-"}
+                      </td>
 
-                        <td className="px-5 py-4 text-right">
-                          {item.leftover !==
-                          null
-                            ? `${formatNumber(
-                                item.leftover
-                              )} ${displayUnit(
-                                item.pack_unit
-                              )}`
-                            : "-"}
-                        </td>
-
-                        <td className="px-5 py-4 text-right font-bold text-amber-600">
-                          {item.purchaseCost !==
-                          null
-                            ? `${item.purchaseCost.toFixed(
-                                2
-                              )} บาท`
-                            : "-"}
-                        </td>
-                      </tr>
-                    )
-                  )}
+                      <td className="px-5 py-4 text-right font-bold text-amber-600">
+                        {item.purchaseCost !== null
+                          ? `${item.purchaseCost.toFixed(2)} บาท`
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
 
                 <tfoot className="bg-amber-50">
@@ -2719,12 +1730,8 @@ export default function ProductionPage() {
                     >
                       งบซื้อวัตถุดิบขั้นต่ำรวม
                     </td>
-
                     <td className="px-5 py-4 text-right font-extrabold text-amber-600">
-                      {planPurchaseCost.toFixed(
-                        2
-                      )}{" "}
-                      บาท
+                      {planPurchaseCost.toFixed(2)} บาท
                     </td>
                   </tr>
                 </tfoot>
@@ -2784,10 +1791,7 @@ function ProductionOverviewCard({
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center gap-2 text-slate-500">
         {icon}
-
-        <span className="text-xs font-bold">
-          {label}
-        </span>
+        <span className="text-xs font-bold">{label}</span>
       </div>
 
       <p className="text-2xl font-extrabold text-slate-800 mt-2">
@@ -2796,4 +1800,3 @@ function ProductionOverviewCard({
     </div>
   );
 }
-

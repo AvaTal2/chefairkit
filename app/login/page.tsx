@@ -44,7 +44,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="text-sm text-slate-500 mt-2">
-            เข้าสู่ ChefAir Kit เพื่อจัดการสูตรของคุณ
+            เข้าสู่ ChefWorkKit เพื่อจัดการสูตรของคุณ
           </p>
         </div>
 

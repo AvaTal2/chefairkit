@@ -14,7 +14,6 @@ export default function robots(): MetadataRoute.Robots {
           "/recipe-calculator",
           "/cost",
           "/qr",
-          "/pricing",
         ],
         disallow: [
           "/account",
@@ -25,6 +24,7 @@ export default function robots(): MetadataRoute.Robots {
           "/production",
           "/sop",
           "/api",
+          "/pricing",
         ],
       },
     ],

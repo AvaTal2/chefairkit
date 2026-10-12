@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
 import {
   ChefHat,
   Calculator,
@@ -25,78 +24,105 @@ import { supabase } from "@/lib/supabase/client";
 type Profile = {
   id: string;
   display_name: string | null;
-  plan: "free" | "pro" | "business";
 };
+
+const MY_AFFILIATE_LINK =
+  "https://s.shopee.co.th/70JW1RXcMF";
+
+const navigation = [
+  {
+    href: "/recipe-calculator",
+    label: "คำนวณสูตร",
+    icon: Scale,
+  },
+  {
+    href: "/cost",
+    label: "คำนวณต้นทุน",
+    icon: Calculator,
+  },
+  {
+    href: "/qr",
+    label: "QR Code",
+    icon: QrCode,
+  },
+  {
+    href: "/recipes",
+    label: "สูตรของฉัน",
+    icon: BookOpen,
+  },
+  {
+    href: "/ingredients",
+    label: "คลังวัตถุดิบ",
+    icon: PackageSearch,
+  },
+  {
+    href: "/production",
+    label: "Production",
+    icon: Factory,
+  },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const MY_AFFILIATE_LINK =
-    "https://s.shopee.co.th/70JW1RXcMF";
-
-  const [profile, setProfile] =
-    useState<Profile | null>(null);
-
-  const [loadingUser, setLoadingUser] =
-    useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   useEffect(() => {
-    loadUser();
+    let mounted = true;
+
+    const loadUser = async () => {
+      setLoadingUser(true);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (!user) {
+        setProfile(null);
+        setLoadingUser(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      setProfile({
+        id: user.id,
+        display_name:
+          data?.display_name ||
+          user.email?.split("@")[0] ||
+          "สมาชิก",
+      });
+
+      setLoadingUser(false);
+    };
+
+    void loadUser();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
+      void loadUser();
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const loadUser = async () => {
-    setLoadingUser(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setProfile(null);
-      setLoadingUser(false);
-      return;
-    }
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, display_name, plan")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (data) {
-      setProfile({
-        id: data.id,
-        display_name: data.display_name,
-        plan: data.plan || "free",
-      });
-    } else {
-      setProfile({
-        id: user.id,
-        display_name:
-          user.email?.split("@")[0] || "สมาชิก",
-        plan: "free",
-      });
-    }
-
-    setLoadingUser(false);
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
-
     setProfile(null);
-
     router.push("/");
     router.refresh();
   };
@@ -106,7 +132,7 @@ export default function Navbar() {
       return pathname === "/";
     }
 
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   const navClass = (href: string) =>
@@ -119,9 +145,7 @@ export default function Navbar() {
   return (
     <nav className="bg-white border-b border-slate-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 flex items-center gap-4">
-
         {/* Logo */}
-
         <Link
           href="/"
           className="flex items-center gap-2.5 shrink-0"
@@ -131,92 +155,38 @@ export default function Navbar() {
           </div>
 
           <span className="font-bold text-slate-800 text-lg tracking-tight whitespace-nowrap">
-            ChefAir{" "}
-            <span className="text-amber-500">
-              Kit
-            </span>
+            ChefWork
+            <span className="text-amber-500">Kit</span>
           </span>
         </Link>
 
         {/* Main navigation */}
-
         <div className="flex-1 overflow-x-auto">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-max">
-
-            <Link
-              href="/recipe-calculator"
-              className={navClass(
-                "/recipe-calculator"
-              )}
-            >
-              <Scale className="w-4 h-4 text-amber-500" />
-              คำนวณสูตร
-            </Link>
-
-            <Link
-              href="/cost"
-              className={navClass("/cost")}
-            >
-              <Calculator className="w-4 h-4 text-amber-500" />
-              คำนวณต้นทุน
-            </Link>
-
-            <Link
-              href="/qr"
-              className={navClass("/qr")}
-            >
-              <QrCode className="w-4 h-4 text-amber-500" />
-              QR Code
-            </Link>
-
-            <Link
-              href="/recipes"
-              className={navClass("/recipes")}
-            >
-              <BookOpen className="w-4 h-4 text-amber-500" />
-              สูตรของฉัน
-            </Link>
-
-            <Link
-              href="/ingredients"
-              className={navClass(
-                "/ingredients"
-              )}
-            >
-              <PackageSearch className="w-4 h-4 text-amber-500" />
-              คลังวัตถุดิบ
-            </Link>
-
-            <Link
-              href="/production"
-              className={navClass(
-                "/production"
-              )}
-            >
-              <Factory className="w-4 h-4 text-amber-500" />
-              Production
-            </Link>
-
+            {navigation.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={navClass(href)}
+              >
+                <Icon className="w-4 h-4 text-amber-500" />
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
 
         {/* Desktop account */}
-
         <div className="hidden md:flex items-center gap-2 shrink-0">
-
-          <button
-            type="button"
-            onClick={() =>
-              window.open(
-                MY_AFFILIATE_LINK,
-                "_blank"
-              )
-            }
+          <a
+            href={MY_AFFILIATE_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3.5 py-2 rounded-xl transition shadow-sm shadow-amber-200"
           >
             <ShoppingBag className="w-4 h-4" />
             Shopee
-          </button>
+          </a>
 
           {!loadingUser && !profile && (
             <>
@@ -243,15 +213,8 @@ export default function Navbar() {
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
                 <User className="w-4 h-4 text-amber-500 shrink-0" />
 
-                <div className="leading-tight">
-                  <div className="text-xs font-bold text-slate-700 max-w-[100px] truncate">
-                    {profile.display_name ||
-                      "สมาชิก"}
-                  </div>
-
-                  <div className="text-[10px] uppercase font-bold text-slate-400">
-                    {profile.plan}
-                  </div>
+                <div className="text-xs font-bold text-slate-700 max-w-[100px] truncate">
+                  {profile.display_name || "สมาชิก"}
                 </div>
               </div>
 
@@ -277,26 +240,19 @@ export default function Navbar() {
               </button>
             </>
           )}
-
         </div>
       </div>
 
       {/* Mobile account */}
-
       {!loadingUser && (
         <div className="md:hidden border-t border-slate-100 px-4 py-2 bg-white">
           <div className="flex items-center gap-2 overflow-x-auto">
-
             {profile ? (
               <>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-amber-50 px-3 py-2 rounded-lg whitespace-nowrap">
                   <User className="w-3.5 h-3.5 text-amber-500" />
-
-                  {profile.display_name ||
-                    "สมาชิก"}
-
-                  <span className="text-[9px] uppercase text-amber-600">
-                    {profile.plan}
+                  <span className="max-w-[160px] truncate">
+                    {profile.display_name || "สมาชิก"}
                   </span>
                 </div>
 
@@ -336,11 +292,9 @@ export default function Navbar() {
                 </Link>
               </>
             )}
-
           </div>
         </div>
       )}
-
     </nav>
   );
 }

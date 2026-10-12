@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Trash2, Calculator, ShoppingBag, Search, Package, Building2, BadgeDollarSign, TrendingUp, Percent, Truck, ReceiptText, BarChart3, Crown, ClipboardPaste, FileText, CircleAlert, CheckCircle2 } from "lucide-react";
-import { useSubscription } from "@/hooks/useSubscription";
+import { Plus, Trash2, Calculator, ShoppingBag, Search, Package, Building2, BadgeDollarSign, TrendingUp, Percent, Truck, ReceiptText, BarChart3, ClipboardPaste, FileText, CircleAlert, CheckCircle2 } from "lucide-react";
 
 interface Ingredient {
   id: string;
@@ -184,13 +182,6 @@ const parseRecipeText = (rawText: string) => {
 };
 
 export default function CostPage() {
-  const router = useRouter();
-
-  const {
-    loading: subscriptionLoading,
-    permissions,
-  } = useSubscription();
-
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     { id: "1", name: "", packPrice: "", packWeight: "", usedWeight: "" },
     { id: "2", name: "", packPrice: "", packWeight: "", usedWeight: "" },
@@ -813,12 +804,6 @@ export default function CostPage() {
             </button>
           </div>
 
-          {subscriptionLoading ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 text-center text-slate-500">
-              กำลังตรวจสอบแพ็กเกจ...
-            </div>
-          ) : permissions.canUseAdvancedCost ? (
-            <>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
             <div className="flex items-center gap-3 mb-5">
               <div className="bg-slate-100 p-2.5 rounded-xl text-slate-700">
@@ -1329,34 +1314,6 @@ export default function CostPage() {
               ตาราง Scenario ใช้ GP และ VAT ที่กรอกด้านบน และใช้ต้นทุนรวมจริงต่อชิ้น/ชุดเป็นฐานคำนวณ
             </p>
           </div>
-            </>
-          ) : (
-            <section className="bg-white border border-amber-200 rounded-3xl p-6 sm:p-8 mb-6 text-center shadow-sm">
-              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
-                <Crown className="w-6 h-6" />
-              </div>
-
-              <h2 className="text-xl font-extrabold text-slate-800 mt-4">
-                Advanced Cost
-              </h2>
-
-              <p className="text-sm text-slate-500 mt-2 max-w-xl mx-auto">
-                คำนวณต้นทุนเพิ่มเติม ราคาขาย กำไร GP / VAT และ Profit Scenario ได้ในแพ็กเกจ Pro หรือ Business
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/pricing"
-                  )
-                }
-                className="mt-5 bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-3 rounded-xl text-sm"
-              >
-                ดูแพ็กเกจ Pro
-              </button>
-            </section>
-          )}
 
 
           <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex items-center justify-between text-slate-700 text-sm">

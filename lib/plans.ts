@@ -1,3 +1,14 @@
+/**
+ * ChefWorkKit Free Edition
+ *
+ * ทุกฟีเจอร์ที่ไม่ใช่ AI เปิดให้ใช้งานฟรี
+ * ไม่มีการจำกัดจำนวนสูตรหรือวัตถุดิบ
+ * ไม่มีระบบแพ็กเกจแบบชำระเงิน
+ *
+ * คง Type และชื่อฟังก์ชันเดิมไว้
+ * เพื่อรองรับโค้ดส่วนอื่นของระบบ
+ */
+
 export type PlanName = "free" | "pro" | "business";
 
 export type FeatureKey =
@@ -27,136 +38,103 @@ export type PlanConfig = {
   features: Record<FeatureKey, boolean>;
 };
 
+/**
+ * สิทธิ์มาตรฐานของ Free Edition
+ */
+const FREE_FEATURES: Record<FeatureKey, boolean> = {
+  cost_calculator: true,
+  qr_generator: true,
+  recipe_storage: true,
+  ingredient_library: true,
+  recipe_scaling: true,
+  production_calculator: true,
+  shopping_list: true,
+  nutrition: true,
+  export_pdf: true,
+  export_excel: true,
+
+  // ปิดระบบ AI ทั้งหมด
+  ai_tools: false,
+};
+
+const FREE_LIMITS = {
+  recipes: null,
+  ingredients: null,
+  aiRequestsPerMonth: 0,
+};
+
+/**
+ * คงชื่อแพ็กเกจเดิมเพื่อความเข้ากันได้
+ * แต่ทุกแพ็กเกจได้รับสิทธิ์เท่ากัน
+ */
 export const PLANS: Record<PlanName, PlanConfig> = {
   free: {
     name: "free",
-    label: "Free",
+    label: "Free Edition",
     priceMonthly: 0,
-
-    limits: {
-      recipes: 5,
-      ingredients: 30,
-      aiRequestsPerMonth: 0,
-    },
-
-    features: {
-      cost_calculator: true,
-      qr_generator: true,
-
-      recipe_storage: true,
-      ingredient_library: true,
-      recipe_scaling: true,
-
-      production_calculator: false,
-      shopping_list: false,
-
-      // ตอนพัฒนายังเปิดไว้ก่อน
-      nutrition: true,
-
-      export_pdf: false,
-      export_excel: false,
-      ai_tools: false,
-    },
+    limits: { ...FREE_LIMITS },
+    features: { ...FREE_FEATURES },
   },
 
   pro: {
     name: "pro",
-    label: "Pro",
-
-    // ยังไม่กำหนดราคาจริง
-    priceMonthly: null,
-
-    limits: {
-      recipes: null,
-      ingredients: null,
-
-      // ตัวเลขชั่วคราว ปรับภายหลังได้
-      aiRequestsPerMonth: 100,
-    },
-
-    features: {
-      cost_calculator: true,
-      qr_generator: true,
-
-      recipe_storage: true,
-      ingredient_library: true,
-      recipe_scaling: true,
-      production_calculator: true,
-      shopping_list: true,
-      nutrition: true,
-
-      export_pdf: true,
-      export_excel: true,
-      ai_tools: true,
-    },
+    label: "Free Edition",
+    priceMonthly: 0,
+    limits: { ...FREE_LIMITS },
+    features: { ...FREE_FEATURES },
   },
 
   business: {
     name: "business",
-    label: "Business",
-
-    priceMonthly: null,
-
-    limits: {
-      recipes: null,
-      ingredients: null,
-
-      // ตัวเลขชั่วคราว
-      aiRequestsPerMonth: 500,
-    },
-
-    features: {
-      cost_calculator: true,
-      qr_generator: true,
-
-      recipe_storage: true,
-      ingredient_library: true,
-      recipe_scaling: true,
-      production_calculator: true,
-      shopping_list: true,
-      nutrition: true,
-
-      export_pdf: true,
-      export_excel: true,
-      ai_tools: true,
-    },
+    label: "Free Edition",
+    priceMonthly: 0,
+    limits: { ...FREE_LIMITS },
+    features: { ...FREE_FEATURES },
   },
 };
 
+/**
+ * ทุกผู้ใช้ได้รับสิทธิ์ Free Edition
+ */
 export function getPlan(
-  plan?: string | null
+  _plan?: string | null
 ): PlanConfig {
-  if (
-    plan === "pro" ||
-    plan === "business"
-  ) {
-    return PLANS[plan];
-  }
-
   return PLANS.free;
 }
 
+/**
+ * ตรวจสอบสิทธิ์การใช้งานฟีเจอร์
+ */
 export function canUseFeature(
-  plan: string | null | undefined,
+  _plan: string | null | undefined,
   feature: FeatureKey
 ): boolean {
-  return getPlan(plan).features[feature];
+  return FREE_FEATURES[feature];
 }
 
+/**
+ * ไม่จำกัดจำนวนสูตร
+ */
 export function getRecipeLimit(
-  plan?: string | null
+  _plan?: string | null
 ): number | null {
-  return getPlan(plan).limits.recipes;
+  return null;
 }
 
+/**
+ * ไม่จำกัดจำนวนวัตถุดิบ
+ */
 export function getIngredientLimit(
-  plan?: string | null
+  _plan?: string | null
 ): number | null {
-  return getPlan(plan).limits.ingredients;
+  return null;
 }
 
+/**
+ * ปิด AI
+ */
 export function getAiMonthlyLimit(
-  plan?: string | null
+  _plan?: string | null
 ): number {
-  return getPlan(plan).limits.aiRequestsPerMonth;
+  return 0;
 }

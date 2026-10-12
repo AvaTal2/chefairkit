@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
-  Crown,
   Save,
   KeyRound,
   LogOut,
-  CreditCard,
   CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
@@ -18,7 +17,6 @@ import { supabase } from "@/lib/supabase/client";
 type Profile = {
   id: string;
   display_name: string | null;
-  plan: string | null;
 };
 
 export default function AccountPage() {
@@ -26,7 +24,6 @@ export default function AccountPage() {
 
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [plan, setPlan] = useState("free");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,7 +34,8 @@ export default function AccountPage() {
   >("");
 
   useEffect(() => {
-    loadAccount();
+    void loadAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAccount = async () => {
@@ -58,13 +56,13 @@ export default function AccountPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name, plan")
+      .select("id, display_name")
       .eq("id", user.id)
       .maybeSingle();
 
     if (error) {
       setMessage(
-        "โหลดข้อมูลสมาชิกไม่สำเร็จ: " + error.message
+        "โหลดข้อมูลบัญชีไม่สำเร็จ: " + error.message
       );
       setMessageType("error");
       setLoading(false);
@@ -73,15 +71,11 @@ export default function AccountPage() {
 
     if (data) {
       const profile = data as Profile;
-
       setDisplayName(profile.display_name || "");
-      setPlan(profile.plan || "free");
     } else {
       setDisplayName(
         user.email?.split("@")[0] || ""
       );
-
-      setPlan("free");
     }
 
     setLoading(false);
@@ -97,6 +91,7 @@ export default function AccountPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setSaving(false);
       router.push("/login");
       return;
     }
@@ -116,7 +111,6 @@ export default function AccountPage() {
         {
           id: user.id,
           display_name: cleanName,
-          plan: plan || "free",
         },
         {
           onConflict: "id",
@@ -149,16 +143,18 @@ export default function AccountPage() {
         : undefined;
 
     const { error } =
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo,
+        }
+      );
 
     if (error) {
       setMessage(
         "ส่งอีเมลเปลี่ยนรหัสผ่านไม่สำเร็จ: " +
           error.message
       );
-
       setMessageType("error");
       return;
     }
@@ -166,7 +162,6 @@ export default function AccountPage() {
     setMessage(
       `ส่งลิงก์เปลี่ยนรหัสผ่านไปที่ ${email} แล้ว`
     );
-
     setMessageType("success");
   };
 
@@ -177,26 +172,12 @@ export default function AccountPage() {
     router.refresh();
   };
 
-  const planLabel = () => {
-    switch (plan) {
-      case "pro":
-        return "PRO";
-
-      case "business":
-        return "BUSINESS";
-
-      default:
-        return "FREE";
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
-
         <main className="max-w-4xl mx-auto px-4 py-10">
           <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
-            กำลังโหลดข้อมูลสมาชิก...
+            กำลังโหลดข้อมูลบัญชี...
           </div>
         </main>
       </div>
@@ -205,17 +186,15 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-
       <main className="max-w-4xl mx-auto px-4 py-10">
         {/* Header */}
-
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
             บัญชีของฉัน
           </h1>
 
           <p className="text-sm text-slate-500 mt-1">
-            จัดการข้อมูลสมาชิกและแพ็กเกจ ChefAir Kit
+            จัดการข้อมูลบัญชี ChefWorkKit
           </p>
         </div>
 
@@ -233,7 +212,6 @@ export default function AccountPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {/* Account */}
-
           <section className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
@@ -247,7 +225,7 @@ export default function AccountPage() {
                   </h2>
 
                   <p className="text-xs text-slate-400 mt-0.5">
-                    ข้อมูลที่ใช้กับบัญชี ChefAir Kit
+                    ข้อมูลที่ใช้กับบัญชี ChefWorkKit
                   </p>
                 </div>
               </div>
@@ -255,7 +233,6 @@ export default function AccountPage() {
 
             <div className="p-6 space-y-5">
               {/* Name */}
-
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   ชื่อที่แสดง
@@ -276,7 +253,6 @@ export default function AccountPage() {
               </div>
 
               {/* Email */}
-
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Email
@@ -298,7 +274,6 @@ export default function AccountPage() {
               </div>
 
               {/* Save */}
-
               <button
                 type="button"
                 onClick={handleSave}
@@ -314,63 +289,46 @@ export default function AccountPage() {
             </div>
           </section>
 
-          {/* Plan */}
-
+          {/* Free Access */}
           <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div className="p-6">
               <div className="flex items-center justify-between gap-3">
-                <div className="bg-amber-50 text-amber-600 p-3 rounded-xl">
-                  <Crown className="w-5 h-5" />
+                <div className="bg-green-50 text-green-600 p-3 rounded-xl">
+                  <ShieldCheck className="w-5 h-5" />
                 </div>
 
-                <span
-                  className={`text-xs font-extrabold px-3 py-1.5 rounded-full ${
-                    plan === "pro" ||
-                    plan === "business"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {planLabel()}
+                <span className="text-xs font-extrabold px-3 py-1.5 rounded-full bg-green-100 text-green-700">
+                  FREE
                 </span>
               </div>
 
               <h2 className="font-bold text-slate-800 mt-5">
-                แพ็กเกจปัจจุบัน
+                สิทธิ์การใช้งาน
               </h2>
 
-              <p className="text-2xl font-extrabold text-slate-800 mt-1">
-                {planLabel()}
+              <p className="text-xl font-extrabold text-slate-800 mt-1">
+                ใช้งานฟรี
               </p>
 
-              {plan === "free" ? (
-                <>
-                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    ขณะนี้คุณใช้งานแพ็กเกจฟรี
-                    ฟีเจอร์ Pro และ AI จะเปิดให้เลือกเพิ่มเติมในอนาคต
-                  </p>
+              <div className="mt-4 flex items-start gap-2 text-xs text-green-700 bg-green-50 rounded-xl p-3">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
 
-                  <button
-                    type="button"
-                    disabled
-                    className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-100 text-slate-400 font-bold py-3 rounded-xl text-sm cursor-not-allowed"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    อัปเกรดเร็ว ๆ นี้
-                  </button>
-                </>
-              ) : (
-                <div className="mt-4 flex items-start gap-2 text-xs text-green-700 bg-green-50 rounded-xl p-3">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  บัญชีนี้เปิดใช้งานแพ็กเกจ {planLabel()}
-                </div>
-              )}
+                <span>
+                  ใช้งานฟีเจอร์ทั่วไปได้ฟรี
+                  โดยไม่ต้องสมัครแพ็กเกจหรือชำระเงิน
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-500 mt-4 leading-relaxed">
+                สามารถบันทึกสูตรอาหาร คำนวณต้นทุน
+                และจัดการข้อมูลผ่านบัญชีของคุณได้
+                โดยไม่มีค่าใช้จ่าย
+              </p>
             </div>
           </section>
         </div>
 
         {/* Security */}
-
         <section className="bg-white border border-slate-200 rounded-3xl shadow-sm mt-6 overflow-hidden">
           <div className="p-6 border-b border-slate-100">
             <h2 className="font-bold text-slate-800">
@@ -410,7 +368,6 @@ export default function AccountPage() {
         </section>
 
         {/* Logout */}
-
         <section className="bg-white border border-red-100 rounded-3xl shadow-sm mt-6 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

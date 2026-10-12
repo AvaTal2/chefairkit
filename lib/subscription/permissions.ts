@@ -77,9 +77,7 @@ export const isSubscriptionActive = (
     return true;
   }
 
-  if (
-    subscription.plan === "free"
-  ) {
+  if (subscription.plan === "free") {
     return true;
   }
 
@@ -90,20 +88,14 @@ export const isSubscriptionActive = (
     return false;
   }
 
-  if (
-    subscription.expires_at
-  ) {
-    const expiresAt =
-      new Date(
-        subscription.expires_at
-      ).getTime();
+  if (subscription.expires_at) {
+    const expiresAt = new Date(
+      subscription.expires_at
+    ).getTime();
 
     if (
-      Number.isFinite(
-        expiresAt
-      ) &&
-      expiresAt <=
-        Date.now()
+      Number.isFinite(expiresAt) &&
+      expiresAt <= Date.now()
     ) {
       return false;
     }
@@ -122,11 +114,7 @@ export const getEffectivePlan = (
     return "free";
   }
 
-  if (
-    !isSubscriptionActive(
-      subscription
-    )
-  ) {
+  if (!isSubscriptionActive(subscription)) {
     return "free";
   }
 
@@ -139,90 +127,43 @@ export const getPlanPermissions = (
     | null
     | undefined
 ): PlanPermissions => {
-  const plan =
-    getEffectivePlan(
-      subscription
-    );
+  const plan = getEffectivePlan(subscription);
 
-  const isFree =
-    plan === "free";
-
-  const isPro =
-    plan === "pro";
-
-  const isBusiness =
-    plan === "business";
+  const isFree = plan === "free";
+  const isPro = plan === "pro";
+  const isBusiness = plan === "business";
 
   /*
-   * V1 Permission Matrix
+   * ChefWorkKit Free Access
    *
-   * ตัวเลข Limit เป็นค่าชั่วคราวสำหรับโครงระบบ
-   * สามารถเปลี่ยนภายหลังได้จากไฟล์นี้จุดเดียว
+   * ฟังก์ชันที่ไม่ใช่ AI เปิดให้ใช้ฟรีทั้งหมด
+   * เก็บโครงสร้าง Subscription เดิมไว้
+   * เพื่อรองรับการใช้งานในอนาคต
+   *
+   * AI ถูกปิดสำหรับทุกแพ็กเกจ
+   *
+   * หมายเหตุ:
+   * ต้องปิด AI API ฝั่ง Server แยกต่างหาก
    */
-  if (isBusiness) {
-    return {
-      plan,
-
-      isFree: false,
-      isPro: false,
-      isBusiness: true,
-
-      canUseAdvancedCost: true,
-      canUseDynamicQr: true,
-      canUseQrAnalytics: true,
-      canUseProduction: true,
-      canUseSop: true,
-      canUseAiSop: true,
-      canUseVersionHistory: true,
-      canExport: true,
-
-      recipeLimit: null,
-      dynamicQrLimit: null,
-      aiSopMonthlyLimit: 500,
-    };
-  }
-
-  if (isPro) {
-    return {
-      plan,
-
-      isFree: false,
-      isPro: true,
-      isBusiness: false,
-
-      canUseAdvancedCost: true,
-      canUseDynamicQr: true,
-      canUseQrAnalytics: true,
-      canUseProduction: true,
-      canUseSop: true,
-      canUseAiSop: true,
-      canUseVersionHistory: true,
-      canExport: true,
-
-      recipeLimit: null,
-      dynamicQrLimit: 100,
-      aiSopMonthlyLimit: 100,
-    };
-  }
 
   return {
-    plan: "free",
+    plan,
 
-    isFree: true,
-    isPro: false,
-    isBusiness: false,
+    isFree,
+    isPro,
+    isBusiness,
 
-    canUseAdvancedCost: false,
-    canUseDynamicQr: false,
-    canUseQrAnalytics: false,
-    canUseProduction: false,
-    canUseSop: false,
-    canUseAiSop: true,
-    canUseVersionHistory: false,
-    canExport: false,
+    canUseAdvancedCost: true,
+    canUseDynamicQr: true,
+    canUseQrAnalytics: true,
+    canUseProduction: true,
+    canUseSop: true,
+    canUseAiSop: false,
+    canUseVersionHistory: true,
+    canExport: true,
 
-    recipeLimit: 5,
-    dynamicQrLimit: 0,
-    aiSopMonthlyLimit: 3,
+    recipeLimit: null,
+    dynamicQrLimit: null,
+    aiSopMonthlyLimit: 0,
   };
 };

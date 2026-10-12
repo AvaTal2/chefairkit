@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { useSubscription } from "@/hooks/useSubscription";
 
 type LibraryIngredient = {
   id: string;
@@ -71,13 +70,11 @@ const convertQuantity = (
   };
 
   if (weightUnits[fromUnit] && weightUnits[toUnit]) {
-    const valueInGrams = value * weightUnits[fromUnit];
-    return valueInGrams / weightUnits[toUnit];
+    return (value * weightUnits[fromUnit]) / weightUnits[toUnit];
   }
 
   if (volumeUnits[fromUnit] && volumeUnits[toUnit]) {
-    const valueInMl = value * volumeUnits[fromUnit];
-    return valueInMl / volumeUnits[toUnit];
+    return (value * volumeUnits[fromUnit]) / volumeUnits[toUnit];
   }
 
   return null;
@@ -92,34 +89,24 @@ const normalizeUnit = (unit?: string | null) => {
     ml: "ml",
     l: "l",
     L: "l",
-
     piece: "piece",
     ชิ้น: "piece",
-
     pack: "pack",
     แพ็ก: "pack",
-
     bottle: "bottle",
     ขวด: "bottle",
-
     bag: "bag",
     ถุง: "bag",
-
     box: "box",
     กล่อง: "box",
-
     egg: "piece",
     ฟอง: "piece",
-
     fruit: "piece",
     ลูก: "piece",
-
     tsp: "tsp",
     ช้อนชา: "tsp",
-
     tbsp: "tbsp",
     ช้อนโต๊ะ: "tbsp",
-
     cup: "cup",
     ถ้วย: "cup",
   };
@@ -130,14 +117,6 @@ const normalizeUnit = (unit?: string | null) => {
 export default function NewRecipePage() {
   const router = useRouter();
 
-  const {
-    loading: subscriptionLoading,
-    permissions,
-  } = useSubscription();
-
-  const [recipeCount, setRecipeCount] = useState(0);
-  const [loadingRecipeLimit, setLoadingRecipeLimit] = useState(true);
-
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [yieldAmount, setYieldAmount] = useState("");
@@ -146,7 +125,6 @@ export default function NewRecipePage() {
   const [notes, setNotes] = useState("");
 
   const [library, setLibrary] = useState<LibraryIngredient[]>([]);
-
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     createEmptyIngredient(),
   ]);
@@ -165,57 +143,9 @@ export default function NewRecipePage() {
     useState("");
 
   useEffect(() => {
-    loadIngredientLibrary();
+    void loadIngredientLibrary();
     loadRecipeTransfer();
   }, []);
-
-  useEffect(() => {
-    if (subscriptionLoading) {
-      return;
-    }
-
-    loadRecipeCount();
-  }, [
-    subscriptionLoading,
-    permissions.recipeLimit,
-  ]);
-
-  const loadRecipeCount = async () => {
-    setLoadingRecipeLimit(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoadingRecipeLimit(false);
-      return;
-    }
-
-    const {
-      count,
-      error,
-    } = await supabase
-      .from("recipes")
-      .select("id", {
-        count: "exact",
-        head: true,
-      })
-      .eq("user_id", user.id);
-
-    if (error) {
-      console.error(
-        "ตรวจสอบจำนวนสูตรไม่สำเร็จ:",
-        error
-      );
-
-      setLoadingRecipeLimit(false);
-      return;
-    }
-
-    setRecipeCount(count || 0);
-    setLoadingRecipeLimit(false);
-  };
 
   const loadRecipeTransfer = () => {
     try {
@@ -223,12 +153,9 @@ export default function NewRecipePage() {
         "chefair_recipe_transfer"
       );
 
-      if (!rawData) {
-        return;
-      }
+      if (!rawData) return;
 
-      const transferData: RecipeTransferData =
-        JSON.parse(rawData);
+      const transferData: RecipeTransferData = JSON.parse(rawData);
 
       if (
         transferData.source !== "recipe-calculator" ||
@@ -238,16 +165,11 @@ export default function NewRecipePage() {
         return;
       }
 
-      // ป้องกันข้อมูลเก่าค้างนานเกินไป
       if (
         transferData.createdAt &&
-        Date.now() - transferData.createdAt >
-          1000 * 60 * 60 * 12
+        Date.now() - transferData.createdAt > 1000 * 60 * 60 * 12
       ) {
-        sessionStorage.removeItem(
-          "chefair_recipe_transfer"
-        );
-
+        sessionStorage.removeItem("chefair_recipe_transfer");
         return;
       }
 
@@ -259,9 +181,7 @@ export default function NewRecipePage() {
               Number(item.quantity) > 0
           )
           .map((item) => {
-            const normalizedUnit = normalizeUnit(
-              item.unit
-            );
+            const normalizedUnit = normalizeUnit(item.unit);
 
             return {
               libraryId: null,
@@ -285,14 +205,13 @@ export default function NewRecipePage() {
         transferData.yieldAmount !== undefined &&
         Number(transferData.yieldAmount) > 0
       ) {
-        setYieldAmount(
-          String(transferData.yieldAmount)
-        );
+        setYieldAmount(String(transferData.yieldAmount));
       }
 
       if (transferData.yieldUnit) {
-        const normalizedYieldUnit =
-          normalizeUnit(transferData.yieldUnit);
+        const normalizedYieldUnit = normalizeUnit(
+          transferData.yieldUnit
+        );
 
         if (
           ["g", "kg", "ml", "l", "piece"].includes(
@@ -308,9 +227,7 @@ export default function NewRecipePage() {
         transferData.servings !== undefined &&
         Number(transferData.servings) > 0
       ) {
-        setServings(
-          String(transferData.servings)
-        );
+        setServings(String(transferData.servings));
       }
 
       if (transferData.calculationDescription) {
@@ -324,9 +241,7 @@ export default function NewRecipePage() {
         error
       );
 
-      sessionStorage.removeItem(
-        "chefair_recipe_transfer"
-      );
+      sessionStorage.removeItem("chefair_recipe_transfer");
     }
   };
 
@@ -338,6 +253,7 @@ export default function NewRecipePage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setLoadingLibrary(false);
       router.push("/login");
       return;
     }
@@ -351,10 +267,8 @@ export default function NewRecipePage() {
 
     if (error) {
       setMessage(
-        "โหลดคลังวัตถุดิบไม่สำเร็จ: " +
-          error.message
+        "โหลดคลังวัตถุดิบไม่สำเร็จ: " + error.message
       );
-
       setLoadingLibrary(false);
       return;
     }
@@ -364,8 +278,8 @@ export default function NewRecipePage() {
   };
 
   const addIngredient = () => {
-    setIngredients([
-      ...ingredients,
+    setIngredients((prev) => [
+      ...prev,
       createEmptyIngredient(),
     ]);
   };
@@ -373,13 +287,11 @@ export default function NewRecipePage() {
   const removeIngredient = (index: number) => {
     if (ingredients.length === 1) return;
 
-    setIngredients(
-      ingredients.filter((_, i) => i !== index)
+    setIngredients((prev) =>
+      prev.filter((_, i) => i !== index)
     );
 
-    if (openLibraryIndex === index) {
-      setOpenLibraryIndex(null);
-    }
+    setOpenLibraryIndex(null);
   };
 
   const updateIngredient = (
@@ -387,13 +299,10 @@ export default function NewRecipePage() {
     field: keyof Ingredient,
     value: string | null
   ) => {
-    setIngredients(
-      ingredients.map((item, i) =>
+    setIngredients((prev) =>
+      prev.map((item, i) =>
         i === index
-          ? {
-              ...item,
-              [field]: value,
-            }
+          ? { ...item, [field]: value }
           : item
       )
     );
@@ -403,8 +312,8 @@ export default function NewRecipePage() {
     index: number,
     item: LibraryIngredient
   ) => {
-    setIngredients(
-      ingredients.map((row, i) =>
+    setIngredients((prev) =>
+      prev.map((row, i) =>
         i === index
           ? {
               ...row,
@@ -413,18 +322,12 @@ export default function NewRecipePage() {
               search: item.brand
                 ? `${item.name} — ${item.brand}`
                 : item.name,
-              packPrice: String(
-                item.pack_price ?? ""
-              ),
+              packPrice: String(item.pack_price ?? ""),
               packQuantity: String(
                 item.pack_quantity ?? ""
               ),
-              packUnit:
-                item.pack_unit || "g",
-              unit:
-                row.unit ||
-                item.pack_unit ||
-                "g",
+              packUnit: item.pack_unit || "g",
+              unit: row.unit || item.pack_unit || "g",
             }
           : row
       )
@@ -433,11 +336,9 @@ export default function NewRecipePage() {
     setOpenLibraryIndex(null);
   };
 
-  const clearLibrarySelection = (
-    index: number
-  ) => {
-    setIngredients(
-      ingredients.map((item, i) =>
+  const clearLibrarySelection = (index: number) => {
+    setIngredients((prev) =>
+      prev.map((item, i) =>
         i === index
           ? {
               ...item,
@@ -452,11 +353,8 @@ export default function NewRecipePage() {
     );
   };
 
-  const getFilteredLibrary = (
-    search: string
-  ) => {
-    const keyword =
-      search.trim().toLowerCase();
+  const getFilteredLibrary = (search: string) => {
+    const keyword = search.trim().toLowerCase();
 
     if (!keyword) {
       return library.slice(0, 10);
@@ -464,12 +362,8 @@ export default function NewRecipePage() {
 
     return library
       .filter((item) => {
-        const nameText =
-          item.name.toLowerCase();
-
-        const brandText = (
-          item.brand || ""
-        ).toLowerCase();
+        const nameText = item.name.toLowerCase();
+        const brandText = (item.brand || "").toLowerCase();
 
         return (
           nameText.includes(keyword) ||
@@ -480,58 +374,37 @@ export default function NewRecipePage() {
   };
 
   const estimatedTotalCost = useMemo(() => {
-    return ingredients.reduce(
-      (sum, item) => {
-        const usedQuantity = Number(
-          item.quantity || 0
-        );
+    return ingredients.reduce((sum, item) => {
+      const usedQuantity = Number(item.quantity || 0);
+      const packPrice = Number(item.packPrice || 0);
+      const packQuantity = Number(item.packQuantity || 0);
 
-        const packPrice = Number(
-          item.packPrice || 0
-        );
+      if (
+        usedQuantity <= 0 ||
+        packPrice <= 0 ||
+        packQuantity <= 0
+      ) {
+        return sum;
+      }
 
-        const packQuantity = Number(
-          item.packQuantity || 0
-        );
+      const convertedUsedQuantity = convertQuantity(
+        usedQuantity,
+        item.unit,
+        item.packUnit
+      );
 
-        if (
-          usedQuantity <= 0 ||
-          packPrice <= 0 ||
-          packQuantity <= 0
-        ) {
-          return sum;
-        }
+      if (convertedUsedQuantity === null) {
+        return sum;
+      }
 
-        const convertedUsedQuantity =
-          convertQuantity(
-            usedQuantity,
-            item.unit,
-            item.packUnit
-          );
-
-        if (
-          convertedUsedQuantity === null
-        ) {
-          return sum;
-        }
-
-        return (
-          sum +
-          (packPrice / packQuantity) *
-            convertedUsedQuantity
-        );
-      },
-      0
-    );
+      return (
+        sum +
+        (packPrice / packQuantity) * convertedUsedQuantity
+      );
+    }, 0);
   }, [ingredients]);
 
-  const recipeLimitReached =
-    permissions.recipeLimit !== null &&
-    recipeCount >= permissions.recipeLimit;
-
-  const handleSave = async (
-    e: React.FormEvent
-  ) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setSaving(true);
@@ -542,51 +415,9 @@ export default function NewRecipePage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      setSaving(false);
       router.push("/login");
       return;
-    }
-
-    if (
-      permissions.recipeLimit !== null
-    ) {
-      const {
-        count:
-          latestRecipeCount,
-        error:
-          recipeCountError,
-      } = await supabase
-        .from("recipes")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("user_id", user.id);
-
-      if (recipeCountError) {
-        setMessage(
-          "ตรวจสอบจำนวนสูตรไม่สำเร็จ: " +
-            recipeCountError.message
-        );
-
-        setSaving(false);
-        return;
-      }
-
-      if (
-        (latestRecipeCount || 0) >=
-        permissions.recipeLimit
-      ) {
-        setRecipeCount(
-          latestRecipeCount || 0
-        );
-
-        setMessage(
-          `แพ็กเกจ Free บันทึกได้สูงสุด ${permissions.recipeLimit} สูตร`
-        );
-
-        setSaving(false);
-        return;
-      }
     }
 
     if (!name.trim()) {
@@ -595,106 +426,80 @@ export default function NewRecipePage() {
       return;
     }
 
-    const validIngredients =
-      ingredients.filter(
-        (item) =>
-          item.name.trim() &&
-          Number(item.quantity || 0) > 0
-      );
+    const validIngredients = ingredients.filter(
+      (item) =>
+        item.name.trim() &&
+        Number(item.quantity || 0) > 0
+    );
 
     if (validIngredients.length === 0) {
       setMessage(
         "กรุณาเพิ่มวัตถุดิบอย่างน้อย 1 รายการ"
       );
-
       setSaving(false);
       return;
     }
 
-    const {
-      data: recipe,
-      error: recipeError,
-    } = await supabase
-      .from("recipes")
-      .insert({
-        user_id: user.id,
-        name: name.trim(),
-        category:
-          category.trim() || null,
-        yield_amount: yieldAmount
-          ? Number(yieldAmount)
-          : null,
-        yield_unit: yieldUnit,
-        servings: servings
-          ? Number(servings)
-          : null,
-        notes:
-          notes.trim() || null,
-      })
-      .select()
-      .single();
+    const { data: recipe, error: recipeError } =
+      await supabase
+        .from("recipes")
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+          category: category.trim() || null,
+          yield_amount: yieldAmount
+            ? Number(yieldAmount)
+            : null,
+          yield_unit: yieldUnit,
+          servings: servings
+            ? Number(servings)
+            : null,
+          notes: notes.trim() || null,
+        })
+        .select()
+        .single();
 
     if (recipeError || !recipe) {
       setMessage(
         recipeError?.message ||
           "ไม่สามารถบันทึกสูตรได้"
       );
-
       setSaving(false);
       return;
     }
 
-    const ingredientRows =
-      validIngredients.map((item) => ({
+    const ingredientRows = validIngredients.map(
+      (item) => ({
         recipe_id: recipe.id,
-
-        ingredient_id:
-          item.libraryId,
-
-        ingredient_name:
-          item.name.trim(),
-
-        quantity: Number(
-          item.quantity || 0
-        ),
-
+        ingredient_id: item.libraryId,
+        ingredient_name: item.name.trim(),
+        quantity: Number(item.quantity || 0),
         unit: item.unit,
+        pack_price: Number(item.packPrice || 0),
+        pack_quantity: Number(item.packQuantity || 0),
+        pack_unit: item.packUnit || item.unit,
+      })
+    );
 
-        pack_price: Number(
-          item.packPrice || 0
-        ),
-
-        pack_quantity: Number(
-          item.packQuantity || 0
-        ),
-
-        pack_unit:
-          item.packUnit ||
-          item.unit,
-      }));
-
-    const { error: ingredientError } =
-      await supabase
-        .from("recipe_ingredients")
-        .insert(ingredientRows);
+    const { error: ingredientError } = await supabase
+      .from("recipe_ingredients")
+      .insert(ingredientRows);
 
     if (ingredientError) {
       await supabase
         .from("recipes")
         .delete()
-        .eq("id", recipe.id);
+        .eq("id", recipe.id)
+        .eq("user_id", user.id);
 
       setMessage(
         "บันทึกวัตถุดิบไม่สำเร็จ: " +
           ingredientError.message
       );
-
       setSaving(false);
       return;
     }
 
-    // สูตรถูกบันทึกสำเร็จแล้ว
-    // ลบข้อมูลพักจาก Calculator
     sessionStorage.removeItem(
       "chefair_recipe_transfer"
     );
@@ -703,10 +508,7 @@ export default function NewRecipePage() {
       "chefair_after_login_redirect"
     );
 
-    router.push(
-      `/recipes/${recipe.id}`
-    );
-
+    router.push(`/recipes/${recipe.id}`);
     router.refresh();
   };
 
@@ -723,44 +525,6 @@ export default function NewRecipePage() {
             แล้วกรอกเฉพาะปริมาณที่ใช้ในสูตร
           </p>
         </div>
-
-        {!subscriptionLoading &&
-          !loadingRecipeLimit &&
-          permissions.recipeLimit !== null && (
-          <div
-            className={`mb-6 rounded-2xl border px-5 py-4 ${
-              recipeLimitReached
-                ? "bg-amber-50 border-amber-200"
-                : "bg-white border-slate-200"
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-slate-800">
-                  สูตรที่บันทึกไว้ {recipeCount} / {permissions.recipeLimit}
-                </p>
-
-                <p className="text-xs text-slate-500 mt-1">
-                  แพ็กเกจ Free บันทึกสูตรได้สูงสุด {permissions.recipeLimit} สูตร
-                </p>
-              </div>
-
-              {recipeLimitReached && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push("/pricing")
-                  }
-                  className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm"
-                >
-                  ดูแพ็กเกจ Pro
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* แจ้งเตือนเมื่อมาจาก Recipe Calculator */}
 
         {importedFromCalculator && (
           <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4">
@@ -795,8 +559,6 @@ export default function NewRecipePage() {
           onSubmit={handleSave}
           className="space-y-6"
         >
-          {/* ข้อมูลสูตร */}
-
           <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <h2 className="font-bold text-slate-800 mb-5">
               ข้อมูลสูตร
@@ -814,9 +576,7 @@ export default function NewRecipePage() {
                     setName(e.target.value)
                   }
                   required
-                  autoFocus={
-                    importedFromCalculator
-                  }
+                  autoFocus={importedFromCalculator}
                   placeholder="เช่น น้ำจิ้มซีฟู้ด"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
                 />
@@ -830,9 +590,7 @@ export default function NewRecipePage() {
                 <input
                   value={category}
                   onChange={(e) =>
-                    setCategory(
-                      e.target.value
-                    )
+                    setCategory(e.target.value)
                   }
                   placeholder="เช่น น้ำจิ้ม / เบเกอรี่ / อาหาร"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
@@ -851,42 +609,24 @@ export default function NewRecipePage() {
                     step="0.001"
                     value={yieldAmount}
                     onChange={(e) =>
-                      setYieldAmount(
-                        e.target.value
-                      )
+                      setYieldAmount(e.target.value)
                     }
                     placeholder="1000"
-                    className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                    className="flex-1 min-w-0 px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
                   />
 
                   <select
                     value={yieldUnit}
                     onChange={(e) =>
-                      setYieldUnit(
-                        e.target.value
-                      )
+                      setYieldUnit(e.target.value)
                     }
                     className="px-3 border border-slate-200 rounded-xl text-sm bg-white"
                   >
-                    <option value="g">
-                      กรัม
-                    </option>
-
-                    <option value="kg">
-                      กิโลกรัม
-                    </option>
-
-                    <option value="ml">
-                      มิลลิลิตร
-                    </option>
-
-                    <option value="l">
-                      ลิตร
-                    </option>
-
-                    <option value="piece">
-                      ชิ้น
-                    </option>
+                    <option value="g">กรัม</option>
+                    <option value="kg">กิโลกรัม</option>
+                    <option value="ml">มิลลิลิตร</option>
+                    <option value="l">ลิตร</option>
+                    <option value="piece">ชิ้น</option>
                   </select>
                 </div>
               </div>
@@ -902,9 +642,7 @@ export default function NewRecipePage() {
                   step="0.001"
                   value={servings}
                   onChange={(e) =>
-                    setServings(
-                      e.target.value
-                    )
+                    setServings(e.target.value)
                   }
                   placeholder="เช่น 20"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
@@ -928,8 +666,6 @@ export default function NewRecipePage() {
               />
             </div>
           </section>
-
-          {/* วัตถุดิบ */}
 
           <section className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
@@ -960,387 +696,268 @@ export default function NewRecipePage() {
             )}
 
             <div className="space-y-4">
-              {ingredients.map(
-                (item, index) => {
-                  const filteredLibrary =
-                    getFilteredLibrary(
-                      item.search
-                    );
+              {ingredients.map((item, index) => {
+                const filteredLibrary =
+                  getFilteredLibrary(item.search);
 
-                  const usedQuantity =
-                    Number(
-                      item.quantity || 0
-                    );
+                const usedQuantity = Number(
+                  item.quantity || 0
+                );
 
-                  const packPrice =
-                    Number(
-                      item.packPrice || 0
-                    );
+                const packPrice = Number(
+                  item.packPrice || 0
+                );
 
-                  const packQuantity =
-                    Number(
-                      item.packQuantity ||
-                        0
-                    );
+                const packQuantity = Number(
+                  item.packQuantity || 0
+                );
 
-                  const convertedUsedQuantity =
-                    usedQuantity > 0
-                      ? convertQuantity(
-                          usedQuantity,
-                          item.unit,
-                          item.packUnit
-                        )
-                      : null;
+                const convertedUsedQuantity =
+                  usedQuantity > 0
+                    ? convertQuantity(
+                        usedQuantity,
+                        item.unit,
+                        item.packUnit
+                      )
+                    : null;
 
-                  const estimatedCost =
-                    convertedUsedQuantity !==
-                      null &&
-                    packPrice > 0 &&
-                    packQuantity > 0
-                      ? (packPrice /
-                          packQuantity) *
-                        convertedUsedQuantity
-                      : 0;
+                const estimatedCost =
+                  convertedUsedQuantity !== null &&
+                  packPrice > 0 &&
+                  packQuantity > 0
+                    ? (packPrice / packQuantity) *
+                      convertedUsedQuantity
+                    : 0;
 
-                  const unitCanConvert =
-                    item.unit ===
-                      item.packUnit ||
-                    convertQuantity(
-                      usedQuantity || 1,
-                      item.unit,
-                      item.packUnit
-                    ) !== null;
+                const unitCanConvert =
+                  item.unit === item.packUnit ||
+                  convertQuantity(
+                    usedQuantity || 1,
+                    item.unit,
+                    item.packUnit
+                  ) !== null;
 
-                  return (
-                    <div
-                      key={index}
-                      className="border border-slate-200 rounded-2xl p-4"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                        {/* วัตถุดิบ */}
+                return (
+                  <div
+                    key={index}
+                    className="border border-slate-200 rounded-2xl p-4"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                      <div className="md:col-span-5 relative">
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                          วัตถุดิบ
+                        </label>
 
-                        <div className="md:col-span-5 relative">
-                          <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                            วัตถุดิบ
-                          </label>
+                        <input
+                          value={item.search}
+                          onFocus={() =>
+                            setOpenLibraryIndex(index)
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value;
 
-                          <input
-                            value={
-                              item.search
-                            }
-                            onFocus={() =>
-                              setOpenLibraryIndex(
-                                index
+                            setOpenLibraryIndex(index);
+
+                            setIngredients((prev) =>
+                              prev.map((row, i) =>
+                                i === index
+                                  ? {
+                                      ...row,
+                                      search: value,
+                                      name: value,
+                                      libraryId: null,
+                                      packPrice: "",
+                                      packQuantity: "",
+                                      packUnit: row.unit,
+                                    }
+                                  : row
                               )
-                            }
-                            onChange={(
-                              e
-                            ) => {
-                              const value =
-                                e.target
-                                  .value;
+                            );
+                          }}
+                          placeholder="ค้นหา เช่น มายองเนส"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                        />
 
-                              setOpenLibraryIndex(
-                                index
-                              );
+                        {openLibraryIndex === index &&
+                          filteredLibrary.length > 0 && (
+                            <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                              {filteredLibrary.map(
+                                (libraryItem) => (
+                                  <button
+                                    key={libraryItem.id}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
 
-                              setIngredients(
-                                ingredients.map(
-                                  (
-                                    row,
-                                    i
-                                  ) =>
-                                    i ===
-                                    index
-                                      ? {
-                                          ...row,
-                                          search:
-                                            value,
-                                          name: value,
-                                          libraryId:
-                                            null,
-                                          packPrice:
-                                            "",
-                                          packQuantity:
-                                            "",
-                                          packUnit:
-                                            row.unit,
-                                        }
-                                      : row
+                                      selectLibraryIngredient(
+                                        index,
+                                        libraryItem
+                                      );
+                                    }}
+                                    className="w-full text-left px-4 py-3 hover:bg-amber-50 border-b border-slate-100 last:border-b-0"
+                                  >
+                                    <div className="font-semibold text-sm text-slate-700">
+                                      {libraryItem.name}
+                                    </div>
+
+                                    <div className="text-xs text-slate-400 mt-1">
+                                      {libraryItem.brand
+                                        ? `${libraryItem.brand} • `
+                                        : ""}
+                                      {libraryItem.pack_quantity}{" "}
+                                      {libraryItem.pack_unit} •{" "}
+                                      {Number(
+                                        libraryItem.pack_price
+                                      ).toFixed(2)}{" "}
+                                      บาท
+                                    </div>
+                                  </button>
                                 )
-                              );
-                            }}
-                            placeholder="ค้นหา เช่น มายองเนส"
-                            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                          />
-
-                          {openLibraryIndex ===
-                            index &&
-                            filteredLibrary.length >
-                              0 && (
-                              <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
-                                {filteredLibrary.map(
-                                  (
-                                    libraryItem
-                                  ) => (
-                                    <button
-                                      key={
-                                        libraryItem.id
-                                      }
-                                      type="button"
-                                      onMouseDown={(
-                                        e
-                                      ) => {
-                                        e.preventDefault();
-
-                                        selectLibraryIngredient(
-                                          index,
-                                          libraryItem
-                                        );
-                                      }}
-                                      className="w-full text-left px-4 py-3 hover:bg-amber-50 border-b border-slate-100 last:border-b-0"
-                                    >
-                                      <div className="font-semibold text-sm text-slate-700">
-                                        {
-                                          libraryItem.name
-                                        }
-                                      </div>
-
-                                      <div className="text-xs text-slate-400 mt-1">
-                                        {libraryItem.brand
-                                          ? `${libraryItem.brand} • `
-                                          : ""}
-
-                                        {
-                                          libraryItem.pack_quantity
-                                        }{" "}
-                                        {
-                                          libraryItem.pack_unit
-                                        }{" "}
-                                        •{" "}
-                                        {Number(
-                                          libraryItem.pack_price
-                                        ).toFixed(
-                                          2
-                                        )}{" "}
-                                        บาท
-                                      </div>
-                                    </button>
-                                  )
-                                )}
-                              </div>
-                            )}
-
-                          {item.libraryId && (
-                            <div className="mt-1.5 flex items-center gap-2">
-                              <span className="text-xs text-green-600 font-semibold">
-                                ✓
-                                เชื่อมกับคลังวัตถุดิบ
-                              </span>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  clearLibrarySelection(
-                                    index
-                                  )
-                                }
-                                className="text-xs text-slate-400 hover:text-slate-600"
-                              >
-                                ยกเลิกการเลือก
-                              </button>
+                              )}
                             </div>
                           )}
-                        </div>
 
-                        {/* ปริมาณ */}
+                        {item.libraryId && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <span className="text-xs text-green-600 font-semibold">
+                              ✓ เชื่อมกับคลังวัตถุดิบ
+                            </span>
 
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                            ปริมาณใช้
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.001"
-                            value={
-                              item.quantity
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              updateIngredient(
-                                index,
-                                "quantity",
-                                e.target
-                                  .value
-                              )
-                            }
-                            placeholder="300"
-                            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
-                          />
-                        </div>
-
-                        {/* หน่วย */}
-
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                            หน่วย
-                          </label>
-
-                          <select
-                            value={item.unit}
-                            onChange={(
-                              e
-                            ) =>
-                              updateIngredient(
-                                index,
-                                "unit",
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
-                          >
-                            <option value="g">
-                              g
-                            </option>
-
-                            <option value="kg">
-                              kg
-                            </option>
-
-                            <option value="ml">
-                              ml
-                            </option>
-
-                            <option value="l">
-                              L
-                            </option>
-
-                            <option value="piece">
-                              ชิ้น
-                            </option>
-
-                            <option value="pack">
-                              แพ็ก
-                            </option>
-
-                            <option value="bottle">
-                              ขวด
-                            </option>
-
-                            <option value="bag">
-                              ถุง
-                            </option>
-
-                            <option value="box">
-                              กล่อง
-                            </option>
-
-                            <option value="tsp">
-                              ช้อนชา
-                            </option>
-
-                            <option value="tbsp">
-                              ช้อนโต๊ะ
-                            </option>
-
-                            <option value="cup">
-                              ถ้วย
-                            </option>
-                          </select>
-                        </div>
-
-                        {/* Cost */}
-
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-semibold text-slate-500 mb-1.5">
-                            ต้นทุนที่ใช้
-                          </label>
-
-                          <div className="h-[42px] px-3 flex items-center justify-end bg-slate-50 rounded-xl text-sm font-bold text-slate-700">
-                            {unitCanConvert
-                              ? `${estimatedCost.toFixed(
-                                  2
-                                )} บาท`
-                              : "-"}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                clearLibrarySelection(index)
+                              }
+                              className="text-xs text-slate-400 hover:text-slate-600"
+                            >
+                              ยกเลิกการเลือก
+                            </button>
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        {/* Delete */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                          ปริมาณใช้
+                        </label>
 
-                        <div className="md:col-span-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeIngredient(
-                                index
-                              )
-                            }
-                            className="w-full h-[42px] rounded-xl border border-red-100 text-red-500 text-xs font-bold hover:bg-red-50"
-                          >
-                            ลบ
-                          </button>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateIngredient(
+                              index,
+                              "quantity",
+                              e.target.value
+                            )
+                          }
+                          placeholder="300"
+                          className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                          หน่วย
+                        </label>
+
+                        <select
+                          value={item.unit}
+                          onChange={(e) =>
+                            updateIngredient(
+                              index,
+                              "unit",
+                              e.target.value
+                            )
+                          }
+                          className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white"
+                        >
+                          <option value="g">g</option>
+                          <option value="kg">kg</option>
+                          <option value="ml">ml</option>
+                          <option value="l">L</option>
+                          <option value="piece">ชิ้น</option>
+                          <option value="pack">แพ็ก</option>
+                          <option value="bottle">ขวด</option>
+                          <option value="bag">ถุง</option>
+                          <option value="box">กล่อง</option>
+                          <option value="tsp">ช้อนชา</option>
+                          <option value="tbsp">ช้อนโต๊ะ</option>
+                          <option value="cup">ถ้วย</option>
+                        </select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                          ต้นทุนที่ใช้
+                        </label>
+
+                        <div className="h-[42px] px-3 flex items-center justify-end bg-slate-50 rounded-xl text-sm font-bold text-slate-700">
+                          {unitCanConvert
+                            ? `${estimatedCost.toFixed(2)} บาท`
+                            : "-"}
                         </div>
                       </div>
 
-                      {/* Pack info */}
-
-                      <div className="mt-3 bg-slate-50 rounded-xl px-4 py-3">
-                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
-                          <div>
-                            <span className="text-slate-400">
-                              ขนาดแพ็ก:
-                            </span>{" "}
-                            <span className="font-semibold text-slate-600">
-                              {item.packQuantity ||
-                                "-"}{" "}
-                              {item.packUnit}
-                            </span>
-                          </div>
-
-                          <div>
-                            <span className="text-slate-400">
-                              ราคาแพ็ก:
-                            </span>{" "}
-                            <span className="font-semibold text-slate-600">
-                              {item.packPrice
-                                ? `${Number(
-                                    item.packPrice
-                                  ).toFixed(
-                                    2
-                                  )} บาท`
-                                : "-"}
-                            </span>
-                          </div>
-
-                          {item.unit !==
-                            item.packUnit && (
-                            <>
-                              {unitCanConvert ? (
-                                <div className="text-green-600 font-semibold">
-                                  ✓
-                                  ระบบแปลงหน่วยให้อัตโนมัติ
-                                </div>
-                              ) : (
-                                <div className="text-amber-600 font-semibold">
-                                  ⚠
-                                  ไม่สามารถแปลงหน่วยนี้อัตโนมัติ
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
+                      <div className="md:col-span-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeIngredient(index)
+                          }
+                          className="w-full h-[42px] rounded-xl border border-red-100 text-red-500 text-xs font-bold hover:bg-red-50"
+                        >
+                          ลบ
+                        </button>
                       </div>
                     </div>
-                  );
-                }
-              )}
-            </div>
 
-            {/* Total Cost */}
+                    <div className="mt-3 bg-slate-50 rounded-xl px-4 py-3">
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                        <div>
+                          <span className="text-slate-400">
+                            ขนาดแพ็ก:
+                          </span>{" "}
+                          <span className="font-semibold text-slate-600">
+                            {item.packQuantity || "-"}{" "}
+                            {item.packUnit}
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">
+                            ราคาแพ็ก:
+                          </span>{" "}
+                          <span className="font-semibold text-slate-600">
+                            {item.packPrice
+                              ? `${Number(
+                                  item.packPrice
+                                ).toFixed(2)} บาท`
+                              : "-"}
+                          </span>
+                        </div>
+
+                        {item.unit !== item.packUnit && (
+                          <>
+                            {unitCanConvert ? (
+                              <div className="text-green-600 font-semibold">
+                                ✓ ระบบแปลงหน่วยให้อัตโนมัติ
+                              </div>
+                            ) : (
+                              <div className="text-amber-600 font-semibold">
+                                ⚠ ไม่สามารถแปลงหน่วยนี้อัตโนมัติ
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="mt-5 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between gap-4">
               <span className="text-sm font-semibold text-slate-700">
@@ -1348,15 +965,10 @@ export default function NewRecipePage() {
               </span>
 
               <span className="text-xl font-extrabold text-amber-600">
-                {estimatedTotalCost.toFixed(
-                  2
-                )}{" "}
-                บาท
+                {estimatedTotalCost.toFixed(2)} บาท
               </span>
             </div>
           </section>
-
-          {/* Message */}
 
           {message && (
             <div className="bg-red-50 text-red-600 border border-red-100 rounded-xl px-4 py-3 text-sm">
@@ -1364,14 +976,10 @@ export default function NewRecipePage() {
             </div>
           )}
 
-          {/* Actions */}
-
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() =>
-                router.push("/recipes")
-              }
+              onClick={() => router.push("/recipes")}
               className="flex-1 border border-slate-200 bg-white text-slate-700 font-bold py-3 rounded-xl"
             >
               ยกเลิก
@@ -1379,19 +987,10 @@ export default function NewRecipePage() {
 
             <button
               type="submit"
-              disabled={
-                saving ||
-                subscriptionLoading ||
-                loadingRecipeLimit ||
-                recipeLimitReached
-              }
+              disabled={saving}
               className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition"
             >
-              {saving
-                ? "กำลังบันทึก..."
-                : recipeLimitReached
-                ? "ถึงจำนวนสูตรสูงสุดแล้ว"
-                : "บันทึกสูตร"}
+              {saving ? "กำลังบันทึก..." : "บันทึกสูตร"}
             </button>
           </div>
         </form>
